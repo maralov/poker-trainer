@@ -6,6 +6,7 @@
 
 import { create } from 'zustand'
 
+import { recordAttempt } from '../api/sync'
 import { drillSpot } from '../engine/drill'
 import { buildSpot } from '../engine/spots'
 import type { Action, Scenario, Spot } from '../engine/types'
@@ -83,6 +84,23 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
       streak,
     )
     const justUnlocked = !wasUnlocked && useProgressStore.getState().postUnlocked
+
+    // Подія йде в чергу незалежно від того, чи є мережа і чи є логін:
+    // тренування не має залежати від синку.
+    recordAttempt({
+      client_id: crypto.randomUUID(),
+      stage: 'pre',
+      scenario: spot.scen,
+      hero_pos: spot.heroPos,
+      hand: spot.hand,
+      villain_pos: spot.villainPos,
+      limpers: spot.limpers,
+      chosen,
+      correct: spot.correct,
+      is_drill: spot.drill,
+      is_control: spot.isControl,
+      answered_at: new Date().toISOString(),
+    })
 
     set({
       chosen,

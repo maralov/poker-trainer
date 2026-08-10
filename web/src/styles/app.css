@@ -1068,3 +1068,61 @@ td.m {
     animation: none;
   }
 }
+
+/* ---- account bar ---- */
+.account {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+  min-height: 34px;
+  margin-bottom: 14px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+}
+.account .who {
+  color: var(--muted);
+}
+.account .sync {
+  color: var(--muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.account .sync::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+.account .sync.ok::before {
+  background: var(--green);
+}
+.account .sync.wait::before {
+  background: var(--brass);
+}
+.account .sync.bad::before {
+  background: var(--red);
+}
+.gbtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  background: var(--panel2);
+  border: 1px solid var(--line);
+  color: var(--ivory);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  padding: 8px 13px;
+  border-radius: 2px;
+  transition: 0.15s;
+}
+.gbtn:hover {
+  border-color: var(--brass);
+  color: var(--brass);
+}

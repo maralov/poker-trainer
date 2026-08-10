@@ -6,9 +6,11 @@ import { SCENARIOS } from '../engine/ranges'
 import { ACTION_ORDER, SCENARIO_KEYS } from '../engine/types'
 import { useProgressStore } from '../store/progressStore'
 import { useSessionStore } from '../store/sessionStore'
+import { useStatsSource } from '../store/statsSource'
 
 export function Stats() {
-  const pre = useProgressStore((s) => s.pre)
+  const source = useStatsSource()
+  const pre = source.progress
   const reset = useProgressStore((s) => s.reset)
   const resetSession = useSessionStore((s) => s.resetSession)
 
@@ -60,8 +62,25 @@ export function Stats() {
           історія.
         </p>
 
+        {source.error && (
+          <p className="note">
+            <strong>Серверні дані не завантажились</strong> ({source.error}). Показано історію цього
+            браузера.
+          </p>
+        )}
+        {source.fromServer && source.pending > 0 && (
+          <p className="note">
+            {source.pending} останніх відповідей ще не синхронізовано — на стільки ж цифри нижчі за
+            фактичні.
+          </p>
+        )}
+
         <div className="foot">
-          <span>Прогрес зберігається в цьому браузері</span>
+          <span>
+            {source.fromServer
+              ? 'Дані з сервера — зведені з усіх пристроїв'
+              : 'Прогрес зберігається лише в цьому браузері'}
+          </span>
           <button
             type="button"
             className="link"

@@ -8,7 +8,7 @@ import { GATE } from '../engine/gate'
 import { SCENARIOS } from '../engine/ranges'
 import { CAT_LABEL, GRP_LABEL, buildReport, buildReview } from '../engine/review'
 import { SCENARIO_KEYS, type Scenario } from '../engine/types'
-import { useProgressStore } from '../store/progressStore'
+import { useStatsSource } from '../store/statsSource'
 
 const HINT = 'Звіт можна скопіювати і принести на розбір'
 
@@ -29,7 +29,7 @@ async function copyText(text: string): Promise<void> {
 }
 
 export function Review() {
-  const pre = useProgressStore((s) => s.pre)
+  const pre = useStatsSource().progress
   const [scen, setScen] = useState<Scenario>('rfi')
   const [hint, setHint] = useState(HINT)
 

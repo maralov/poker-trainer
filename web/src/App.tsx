@@ -1,5 +1,6 @@
 import { useState } from 'react'
 
+import { AccountBar } from './components/AccountBar'
 import { GateLock } from './components/GateLock'
 import { gateStatus } from './engine/gate'
 import { useTrainHotkeys } from './hooks/useHotkeys'
@@ -35,6 +36,7 @@ export default function App() {
 
   return (
     <div className="wrap">
+      <AccountBar />
       <div className="head">
         <div>
           <h1>

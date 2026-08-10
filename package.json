@@ -1,0 +1,27 @@
+{
+  "name": "poker-trainer",
+  "private": true,
+  "type": "module",
+  "version": "0.1.0",
+  "description": "Тренажер префлопу 9-max кешу",
+  "scripts": {
+    "db:start": "supabase start",
+    "db:stop": "supabase stop",
+    "db:status": "supabase status",
+    "db:reset": "supabase db reset",
+    "db:new": "supabase migration new",
+    "db:lint": "supabase db lint --level warning",
+    "db:push": "supabase db push",
+    "db:types": "supabase gen types typescript --local > web/src/api/database.types.ts",
+    "test": "npm --prefix web test",
+    "test:db": "vitest run --config vitest.db.config.ts",
+    "typecheck": "npm --prefix web run typecheck",
+    "lint": "npm --prefix web run lint",
+    "build": "npm --prefix web run build"
+  },
+  "devDependencies": {
+    "@supabase/supabase-js": "^2.112.2",
+    "supabase": "^2.113.0",
+    "vitest": "^4.1.10"
+  }
+}
