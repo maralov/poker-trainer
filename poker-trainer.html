@@ -1,0 +1,1423 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Покер-тренажер · 9-max кеш</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,400;6..96,600&family=Karla:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0B0E12; --panel:#141A21; --panel2:#1B222B; --line:#28323D;
+  --brass:#D4A44C; --brass-dim:#8A6C2E; --ivory:#EDE5D5; --muted:#7B8695;
+  --red:#CF4B45; --green:#4FA277; --green-dim:#2C5C45;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{background:radial-gradient(120% 80% at 50% -10%, #17202A 0%, transparent 60%), var(--bg);
+  color:var(--ivory);font-family:'Karla',system-ui,sans-serif;min-height:100vh;
+  padding:26px 18px 50px;-webkit-font-smoothing:antialiased;}
+.wrap{max-width:820px;margin:0 auto;}
+
+/* ---- header ---- */
+.head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;
+  padding-bottom:14px;margin-bottom:14px;flex-wrap:wrap;}
+h1{font-family:'Bodoni Moda',serif;font-size:31px;font-weight:600;line-height:1;margin:0;}
+h1 span{color:var(--brass);}
+.sub{font-size:11px;color:var(--muted);letter-spacing:.14em;text-transform:uppercase;
+  margin-top:8px;font-family:'IBM Plex Mono',monospace;}
+
+/* ---- stage switcher ---- */
+.stages{display:flex;gap:8px;border-bottom:1px solid var(--line);padding-bottom:16px;margin-bottom:18px;}
+.stg{flex:1;cursor:pointer;background:var(--panel);border:1px solid var(--line);border-radius:3px;
+  padding:13px 16px;text-align:left;transition:.18s;position:relative;overflow:hidden;}
+.stg:hover{border-color:var(--muted);}
+.stg.on{border-color:var(--brass);background:linear-gradient(180deg,rgba(212,164,76,.09),transparent);}
+.stg b{display:block;font-family:'Bodoni Moda',serif;font-size:19px;font-weight:600;color:var(--ivory);line-height:1;}
+.stg.on b{color:var(--brass);}
+.stg span{display:block;font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.11em;
+  text-transform:uppercase;color:var(--muted);margin-top:7px;}
+.stg.locked{opacity:.55;}
+.stg.locked b{color:var(--muted);}
+.stg .lockmark{position:absolute;right:13px;top:50%;transform:translateY(-50%);
+  font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:.14em;color:var(--muted);
+  border:1px solid var(--line);padding:4px 7px;border-radius:2px;}
+.stg.unlocked-now .lockmark{color:var(--green);border-color:var(--green-dim);}
+
+/* ---- tabs ---- */
+.tabs{display:flex;gap:2px;background:var(--panel);border:1px solid var(--line);border-radius:2px;
+  padding:2px;margin-bottom:18px;flex-wrap:wrap;}
+.tab{border:0;background:transparent;color:var(--muted);cursor:pointer;font-family:'IBM Plex Mono',monospace;
+  font-size:11px;letter-spacing:.1em;text-transform:uppercase;padding:8px 13px;border-radius:1px;transition:.18s;}
+.tab:hover{color:var(--ivory);} .tab.on{background:var(--brass);color:#12161B;font-weight:600;}
+
+/* ---- shared ---- */
+.stage{background:var(--panel);border:1px solid var(--line);border-radius:3px;padding:20px 18px 24px;}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:3px;padding:22px;}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;}
+.chip{cursor:pointer;background:var(--panel2);border:1px solid var(--line);color:var(--muted);
+  padding:7px 13px;border-radius:2px;font-family:'IBM Plex Mono',monospace;font-size:11px;
+  letter-spacing:.06em;transition:.15s;}
+.chip:hover{color:var(--ivory);}
+.chip.on{background:var(--brass);border-color:var(--brass);color:#12161B;font-weight:600;}
+.chip.on.soft{background:var(--panel2);border-color:var(--brass);color:var(--brass);}
+.strip{display:flex;gap:1px;background:var(--line);border:1px solid var(--line);border-radius:3px;overflow:hidden;}
+.sc{flex:1;background:var(--panel);padding:12px 6px;text-align:center;min-width:0;}
+.sc b{display:block;font-family:'Bodoni Moda',serif;font-size:23px;font-weight:600;line-height:1;color:var(--brass);}
+.sc b.mono{font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:var(--ivory);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.sc span{display:block;font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:.11em;
+  text-transform:uppercase;color:var(--muted);margin-top:6px;}
+h4{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--muted);margin:22px 0 10px;font-weight:500;}
+h4:first-child{margin-top:0;}
+.note{font-size:13.5px;color:var(--muted);line-height:1.6;margin:14px 0 0;}
+.note strong{color:var(--ivory);}
+.empty{text-align:center;color:var(--muted);font-size:13.5px;line-height:1.6;padding:26px 10px;}
+.foot{margin-top:20px;display:flex;justify-content:space-between;align-items:center;gap:12px;
+  font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;color:#5C6672;flex-wrap:wrap;}
+.link{background:none;border:0;color:#5C6672;cursor:pointer;font:inherit;letter-spacing:.1em;
+  text-decoration:underline;text-underline-offset:3px;}
+.link:hover{color:var(--red);}
+.hidden{display:none !important;}
+
+/* ---- drill ---- */
+.drill{border:1px solid var(--line);border-radius:3px;background:var(--panel2);
+  padding:11px 13px;margin-bottom:14px;display:flex;align-items:center;gap:13px;flex-wrap:wrap;}
+.drill.live{border-color:var(--red);background:linear-gradient(180deg,rgba(207,75,69,.10),transparent);}
+.drill .txt{flex:1;min-width:190px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;
+  letter-spacing:.06em;color:var(--muted);line-height:1.65;}
+.drill .txt b{color:var(--ivory);font-weight:600;}
+.drill.live .txt b{color:var(--red);}
+.drill button{cursor:pointer;background:var(--panel);border:1px solid var(--line);color:var(--ivory);
+  font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;
+  padding:8px 14px;border-radius:2px;transition:.15s;white-space:nowrap;}
+.drill button:hover:not(:disabled){border-color:var(--brass);color:var(--brass);}
+.drill button:disabled{opacity:.35;cursor:default;}
+.drill button.stop{border-color:var(--red);color:var(--red);}
+.drill .bar{width:100%;height:3px;background:var(--line);border-radius:2px;overflow:hidden;}
+.drill .bar i{display:block;height:100%;background:var(--brass);transition:width .3s;}
+.drill .bar i.ready{background:var(--green);}
+.tagctl{display:inline-block;font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--muted);border:1px solid var(--line);border-radius:2px;
+  padding:3px 7px;margin-left:8px;vertical-align:middle;}
+
+/* ---- table ---- */
+.felt-wrap{position:relative;width:100%;aspect-ratio:1.72;max-width:640px;margin:0 auto;}
+.felt{position:absolute;inset:11% 6%;border-radius:50%;
+  background:radial-gradient(70% 90% at 50% 30%, #1D4038, #12271F 70%, #0E1D18);
+  border:3px solid #241C11;box-shadow:inset 0 0 60px rgba(0,0,0,.55),0 14px 40px rgba(0,0,0,.5);}
+.felt::after{content:'';position:absolute;inset:9px;border-radius:50%;border:1px solid rgba(212,164,76,.16);}
+.pot{position:absolute;left:50%;top:38%;transform:translate(-50%,-50%);text-align:center;
+  font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.14em;color:rgba(237,229,213,.5);}
+.pot b{display:block;font-family:'Bodoni Moda',serif;font-size:22px;color:var(--brass);
+  letter-spacing:0;margin-top:2px;font-weight:600;}
+.seat{position:absolute;transform:translate(-50%,-50%);text-align:center;width:78px;}
+.seat .lbl{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.06em;color:var(--muted);
+  background:var(--panel2);border:1px solid var(--line);border-radius:2px;padding:4px 0;transition:.2s;}
+.seat.hero .lbl{background:var(--brass);border-color:var(--brass);color:#12161B;font-weight:600;}
+.seat.folded .lbl{opacity:.32;}
+.seat .act{font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.06em;margin-top:4px;
+  height:13px;color:var(--muted);}
+.seat .act.raise{color:var(--brass);} .seat .act.limp{color:var(--green);} .seat .act.threebet{color:var(--red);}
+.seat .btn-chip{position:absolute;right:-6px;top:-6px;width:17px;height:17px;border-radius:50%;
+  background:var(--ivory);color:#12161B;font-size:9px;font-weight:700;line-height:17px;
+  font-family:'IBM Plex Mono',monospace;}
+
+/* ---- cards ---- */
+.cards{display:flex;gap:9px;justify-content:center;}
+.cards.flop{margin-bottom:22px;}
+.board-lbl{text-align:center;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--muted);margin-bottom:10px;}
+.card{width:64px;height:90px;background:linear-gradient(170deg,#FBF7EE,#E3DAC6);border-radius:6px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;color:#141A21;
+  box-shadow:0 10px 22px rgba(0,0,0,.45);animation:deal .26s cubic-bezier(.2,.9,.3,1.2) backwards;}
+.card:nth-child(2){animation-delay:.06s;} .card:nth-child(3){animation-delay:.12s;}
+@keyframes deal{from{opacity:0;transform:translateY(-13px) rotate(-5deg);}}
+.card .r{font-family:'Bodoni Moda',serif;font-size:33px;font-weight:600;line-height:1;}
+.card .s{font-size:23px;line-height:1;margin-top:2px;}
+.card.red .r,.card.red .s{color:#B3322C;}
+.card.hero{background:linear-gradient(170deg,#FFF9EC,#EFE3C8);border:1px solid var(--brass);}
+.hand-label{text-align:center;font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--muted);
+  letter-spacing:.08em;margin-top:8px;}
+
+/* ---- actions ---- */
+.prompt{text-align:center;font-size:13.5px;color:var(--muted);margin:18px auto 0;max-width:520px;line-height:1.55;}
+.acts{display:flex;gap:9px;justify-content:center;margin-top:16px;flex-wrap:wrap;}
+.act-btn{flex:1;min-width:118px;max-width:186px;cursor:pointer;padding:14px 8px;border-radius:3px;
+  font-family:'Karla',sans-serif;font-size:15px;font-weight:700;transition:.16s;}
+.act-btn.primary{background:var(--brass);border:1px solid var(--brass);color:#12161B;}
+.act-btn.primary:hover{background:#E4B75F;transform:translateY(-1px);}
+.act-btn.mid{background:transparent;border:1px solid var(--green-dim);color:var(--green);}
+.act-btn.mid:hover{border-color:var(--green);transform:translateY(-1px);}
+.act-btn.soft{background:transparent;border:1px solid var(--brass-dim);color:var(--brass);}
+.act-btn.soft:hover{border-color:var(--brass);transform:translateY(-1px);}
+.act-btn.ghost{background:transparent;border:1px solid var(--line);color:var(--muted);}
+.act-btn.ghost:hover{border-color:var(--muted);color:var(--ivory);transform:translateY(-1px);}
+.act-btn small{display:block;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:400;
+  opacity:.6;margin-top:3px;letter-spacing:.09em;}
+
+/* ---- verdict ---- */
+.verdict{margin-top:20px;border-top:1px solid var(--line);padding-top:18px;text-align:center;
+  animation:fade .2s ease backwards;}
+@keyframes fade{from{opacity:0;transform:translateY(6px);}}
+.verdict h3{margin:0 0 8px;font-family:'Bodoni Moda',serif;font-size:23px;font-weight:600;}
+.verdict.ok h3{color:var(--green);} .verdict.no h3{color:var(--red);}
+.verdict p{margin:0 auto;font-size:13.5px;color:var(--muted);max-width:520px;line-height:1.6;}
+.verdict strong{color:var(--ivory);}
+.tags{display:flex;gap:7px;justify-content:center;flex-wrap:wrap;margin-bottom:12px;}
+.tag{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.08em;padding:5px 10px;
+  border:1px solid var(--line);border-radius:2px;color:var(--muted);background:var(--panel2);}
+.tag.hand{border-color:var(--brass-dim);color:var(--brass);}
+.next{margin-top:16px;background:transparent;border:1px solid var(--line);color:var(--ivory);
+  padding:11px 26px;border-radius:3px;cursor:pointer;font-family:'IBM Plex Mono',monospace;
+  font-size:11px;letter-spacing:.14em;text-transform:uppercase;transition:.16s;}
+.next:hover{border-color:var(--brass);color:var(--brass);}
+
+/* ---- grid ---- */
+.grid{display:grid;grid-template-columns:repeat(13,1fr);gap:2px;}
+.grid.compact{max-width:340px;margin:16px auto 0;gap:1px;}
+.cell{aspect-ratio:1;display:flex;align-items:center;justify-content:center;
+  font-family:'IBM Plex Mono',monospace;font-size:clamp(6px,1.3vw,10px);
+  background:var(--panel2);color:#4E5866;border-radius:1px;}
+.cell.raise{background:var(--brass-dim);color:#FBF3E2;}
+.cell.raise.pair{background:var(--brass);color:#12161B;font-weight:600;}
+.cell.call{background:var(--green-dim);color:#D8EFE3;}
+.cell.hi{outline:2px solid var(--ivory);outline-offset:-1px;z-index:2;color:#fff;}
+.legend{display:flex;gap:16px;flex-wrap:wrap;margin-top:14px;font-family:'IBM Plex Mono',monospace;
+  font-size:10px;letter-spacing:.1em;color:var(--muted);}
+.legend i{display:inline-block;width:11px;height:11px;border-radius:2px;margin-right:6px;vertical-align:-1px;}
+.range-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-top:16px;}
+.range-head b{font-family:'Bodoni Moda',serif;font-size:24px;color:var(--brass);font-weight:600;}
+.range-head span{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--muted);}
+
+/* ---- review ---- */
+.finding{border-left:2px solid var(--brass);background:var(--panel2);padding:13px 15px;
+  margin-bottom:9px;border-radius:0 2px 2px 0;}
+.finding b{display:block;font-size:14px;color:var(--ivory);margin-bottom:5px;font-weight:700;}
+.finding span{font-size:13px;color:var(--muted);line-height:1.55;}
+.finding.tight{border-left-color:var(--green);}
+.mrow{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--panel2);
+  border:1px solid var(--line);border-radius:2px;padding:9px 13px;margin-bottom:4px;
+  font-family:'IBM Plex Mono',monospace;font-size:12px;}
+.mrow .h{color:var(--ivory);min-width:56px;} .mrow .p{color:var(--muted);min-width:48px;}
+.mrow .fix{color:var(--brass);text-align:right;flex:1;font-size:11px;letter-spacing:.04em;}
+.mrow .fix.f{color:var(--red);} .mrow .n{color:var(--muted);font-size:10px;min-width:30px;text-align:right;}
+.perpos{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:6px;margin-top:12px;}
+.pp{background:var(--panel2);border:1px solid var(--line);border-radius:2px;padding:9px 8px;text-align:center;}
+.pp b{display:block;font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--ivory);}
+.pp span{display:block;font-size:10px;color:var(--muted);margin-top:4px;font-family:'IBM Plex Mono',monospace;}
+.pp.warn b{color:var(--red);} .pp.good b{color:var(--green);}
+
+/* ---- lock ---- */
+.lock-head{text-align:center;padding:6px 0 22px;border-bottom:1px solid var(--line);margin-bottom:22px;}
+.lock-head b{display:block;font-family:'Bodoni Moda',serif;font-size:26px;color:var(--ivory);font-weight:600;}
+.lock-head span{display:block;font-size:13.5px;color:var(--muted);margin-top:10px;line-height:1.6;
+  max-width:520px;margin-left:auto;margin-right:auto;}
+.crit{display:flex;align-items:flex-start;gap:13px;background:var(--panel2);border:1px solid var(--line);
+  border-radius:2px;padding:13px 15px;margin-bottom:8px;}
+.crit .mk{flex:0 0 20px;height:20px;border-radius:50%;border:1px solid var(--line);
+  font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:19px;text-align:center;color:var(--muted);}
+.crit.done .mk{background:var(--green-dim);border-color:var(--green);color:#EAF7F0;}
+.crit .txt{flex:1;min-width:0;}
+.crit .t{font-size:13.5px;color:var(--ivory);display:flex;justify-content:space-between;gap:12px;}
+.crit.done .t{color:var(--green);}
+.crit .t em{font-style:normal;font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--muted);white-space:nowrap;}
+.crit .d{font-size:12px;color:var(--muted);margin-top:5px;line-height:1.5;}
+.pbar{height:3px;background:#0E1319;border-radius:2px;margin-top:9px;overflow:hidden;}
+.pbar i{display:block;height:100%;background:var(--brass);transition:width .4s ease;}
+.crit.done .pbar i{background:var(--green);}
+.banner{background:linear-gradient(90deg,rgba(79,162,119,.16),transparent);
+  border:1px solid var(--green-dim);border-left:3px solid var(--green);border-radius:2px;
+  padding:14px 16px;margin-bottom:16px;}
+.banner b{display:block;font-size:14px;color:var(--green);margin-bottom:4px;}
+.banner span{font-size:13px;color:var(--muted);line-height:1.55;}
+
+table{width:100%;border-collapse:collapse;font-size:12.5px;}
+th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);}
+th{font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.11em;text-transform:uppercase;
+  color:var(--muted);font-weight:500;}
+td:first-child{color:var(--ivory);}
+td.b{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--brass);white-space:nowrap;}
+td.c{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);white-space:nowrap;}
+td.m{color:var(--muted);}
+
+@media (max-width:600px){
+  h1{font-size:24px;} body{padding:18px 11px 34px;}
+  .stages{flex-direction:column;} .stg b{font-size:17px;}
+  .seat{width:60px;} .seat .lbl{font-size:9.5px;} .seat .act{font-size:8.5px;}
+  .card{width:54px;height:77px;} .card .r{font-size:27px;} .card .s{font-size:19px;}
+  .cards{gap:6px;} .felt-wrap{aspect-ratio:1.35;} .sc b{font-size:19px;} .sc b.mono{font-size:10.5px;}
+}
+@media (prefers-reduced-motion:reduce){ .card,.verdict{animation:none;} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="head">
+    <div>
+      <h1>Покер-тренажер <span>·</span> 9-max</h1>
+      <div class="sub">Кеш · лузове мікро-поле</div>
+    </div>
+  </div>
+
+  <div class="stages">
+    <button class="stg on" id="stg-pre"><b>Етап 1 · Префлоп</b><span id="stg-pre-info">—</span></button>
+    <button class="stg locked" id="stg-post"><b>Етап 2 · Постфлоп</b><span id="stg-post-info">—</span>
+      <span class="lockmark" id="lockmark">Закрито</span></button>
+  </div>
+
+  <!-- =================== ЕТАП 1 : ПРЕФЛОП =================== -->
+  <div id="stage-pre">
+    <div class="tabs" id="pre-tabs">
+      <button class="tab on" data-tab="train">Тренування</button>
+      <button class="tab" data-tab="ranges">Діапазони</button>
+      <button class="tab" data-tab="stats">Статистика</button>
+      <button class="tab" data-tab="review">Розбір</button>
+    </div>
+
+    <section id="pre-train">
+      <div id="pre-banner"></div>
+      <div class="chips" id="pre-scenarios"></div>
+      <div id="pre-drill"></div>
+      <div class="stage">
+        <div class="felt-wrap" id="pre-felt">
+          <div class="felt"><div class="pot">Банк<b id="pre-pot">1.5 bb</b></div></div>
+        </div>
+        <div class="cards" id="pre-cards" style="margin-top:14px"></div>
+        <div class="hand-label" id="pre-hand"></div>
+        <p class="prompt" id="pre-prompt"></p>
+        <div class="acts" id="pre-acts"></div>
+        <div id="pre-verdict"></div>
+      </div>
+      <div class="strip" style="margin-top:18px">
+        <div class="sc"><b id="pre-s-streak">0</b><span>серія</span></div>
+        <div class="sc"><b id="pre-s-acc">0%</b><span>точність</span></div>
+        <div class="sc"><b id="pre-s-total">0</b><span>рук</span></div>
+        <div class="sc"><b id="pre-s-best">0</b><span>рекорд</span></div>
+      </div>
+    </section>
+
+    <section id="pre-ranges" class="hidden"><div class="panel">
+      <div class="chips" id="rg-scenario"></div>
+      <div class="chips" id="rg-sub"></div>
+      <div class="grid" id="rg-grid"></div>
+      <div class="legend">
+        <span><i style="background:var(--brass)"></i><span id="lg-raise">Рейз</span></span>
+        <span><i style="background:var(--green-dim)"></i>Колл</span>
+        <span><i style="background:var(--panel2)"></i>Фолд</span>
+      </div>
+      <div class="range-head"><b id="rg-pct">0%</b><span id="rg-pctlbl">рук у діапазоні</span></div>
+      <p class="note" id="rg-note"></p>
+    </div></section>
+
+    <section id="pre-stats" class="hidden"><div class="panel" id="pre-stats-body"></div></section>
+    <section id="pre-review" class="hidden"><div class="panel">
+      <div class="chips" id="rv-scenario"></div>
+      <div id="rv-body"></div>
+      <div class="foot">
+        <span id="rv-copy-hint">Звіт можна скопіювати і принести на розбір</span>
+        <button class="link" id="rv-copy">Скопіювати звіт</button>
+      </div>
+    </div></section>
+  </div>
+
+  <!-- =================== ЕТАП 2 : ПОСТФЛОП =================== -->
+  <div id="stage-post" class="hidden">
+    <div id="post-lock" class="panel"></div>
+
+    <div id="post-app" class="hidden">
+      <div class="tabs" id="post-tabs">
+        <button class="tab on" data-tab="train">Тренування</button>
+        <button class="tab" data-tab="rules">Правила</button>
+        <button class="tab" data-tab="review">Розбір</button>
+      </div>
+
+      <section id="post-train">
+        <div class="stage">
+          <div class="strip" style="margin-bottom:22px">
+            <div class="sc"><b class="mono" id="pf-pos">—</b><span>твоя позиція</span></div>
+            <div class="sc"><b class="mono" id="pf-rel">—</b><span>на постфлопі</span></div>
+            <div class="sc"><b class="mono" id="pf-opp">—</b><span>опонентів</span></div>
+            <div class="sc"><b class="mono" id="pf-pot">—</b><span>банк</span></div>
+          </div>
+          <div class="board-lbl">Флоп</div>
+          <div class="cards flop" id="pf-flop"></div>
+          <div class="board-lbl">Твої карти</div>
+          <div class="cards" id="pf-hole"></div>
+          <p class="prompt" id="pf-prompt"></p>
+          <div class="acts" id="pf-acts"></div>
+          <div id="pf-verdict"></div>
+        </div>
+        <div class="strip" style="margin-top:18px">
+          <div class="sc"><b id="pf-s-streak">0</b><span>серія</span></div>
+          <div class="sc"><b id="pf-s-acc">0%</b><span>точність</span></div>
+          <div class="sc"><b id="pf-s-total">0</b><span>спотів</span></div>
+          <div class="sc"><b id="pf-s-best">0</b><span>рекорд</span></div>
+        </div>
+      </section>
+
+      <section id="post-rules" class="hidden"><div class="panel" id="pf-rules-body"></div></section>
+      <section id="post-review" class="hidden"><div class="panel" id="pf-review-body"></div></section>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ══════════════════════ СПІЛЬНІ ПРИМІТИВИ ══════════════════════ */
+const RANKS=["A","K","Q","J","T","9","8","7","6","5","4","3","2"];
+const RI=r=>RANKS.indexOf(r);
+const VAL={A:14,K:13,Q:12,J:11,T:10,"9":9,"8":8,"7":7,"6":6,"5":5,"4":4,"3":3,"2":2};
+const SUITS=[{g:"♠",red:0},{g:"♥",red:1},{g:"♦",red:1},{g:"♣",red:0}];
+const RX="[AKQJT98765432]";
+const pick=a=>a[Math.floor(Math.random()*a.length)];
+const combos=h=>h.length===2?6:(h.endsWith("s")?4:12);
+const handAt=(i,j)=>i===j?RANKS[i]+RANKS[i]:(j>i?RANKS[i]+RANKS[j]+"s":RANKS[j]+RANKS[i]+"o");
+const ALL_HANDS=(()=>{const o=[];for(let i=0;i<13;i++)for(let j=0;j<13;j++)o.push(handAt(i,j));return o;})();
+const pct=set=>([...set].reduce((s,h)=>s+combos(h),0)/1326*100);
+const union=(...s)=>new Set(s.flatMap(x=>[...x]));
+const minus=(a,b)=>new Set([...a].filter(h=>!b.has(h)));
+
+function parseToken(t){
+  let m,out=[];
+  if(m=t.match(new RegExp(`^(${RX})\\1\\+$`))){for(let i=RI(m[1]);i>=0;i--)out.push(RANKS[i]+RANKS[i]);return out;}
+  if(m=t.match(new RegExp(`^(${RX})\\1-(${RX})\\2$`))){let a=RI(m[1]),b=RI(m[2]);if(a>b)[a,b]=[b,a];
+    for(let i=a;i<=b;i++)out.push(RANKS[i]+RANKS[i]);return out;}
+  if(m=t.match(new RegExp(`^(${RX})(${RX})([so])-(${RX})(${RX})\\3$`))){const hi=RI(m[1]);
+    let a=RI(m[2]),b=RI(m[5]);if(a>b)[a,b]=[b,a];
+    for(let i=a;i<=b;i++)out.push(RANKS[hi]+RANKS[i]+m[3]);return out;}
+  if(m=t.match(new RegExp(`^(${RX})(${RX})([so])\\+$`))){const hi=RI(m[1]);
+    for(let i=RI(m[2]);i>hi;i--)out.push(RANKS[hi]+RANKS[i]+m[3]);return out;}
+  return [t];
+}
+const S=(...t)=>new Set(t.flatMap(parseToken));
+
+const cardHTML=(c,hero)=>`<div class="card${c.red?" red":""}${hero?" hero":""}">
+  <div class="r">${c.rk}</div><div class="s">${c.g}</div></div>`;
+function dealFromHand(hand){
+  const [a,b]=[hand[0],hand[1]];
+  const mk=(rk,si)=>({rk,v:VAL[rk],s:si,g:SUITS[si].g,red:SUITS[si].red});
+  if(hand.length===2||hand.endsWith("o")){
+    const i=Math.floor(Math.random()*4);let j=Math.floor(Math.random()*4);
+    if(j===i) j=(j+1+Math.floor(Math.random()*3))%4;
+    return [mk(a,i),mk(b,j)];
+  }
+  const i=Math.floor(Math.random()*4);return [mk(a,i),mk(b,i)];
+}
+
+/* ══════════════════════ ДІАПАЗОНИ ══════════════════════ */
+const RFI_ADD={
+  "UTG":["66+","ATs+","KTs+","QTs+","JTs","T9s","AQo+"],
+  "UTG+1":["55","A9s","98s","AJo"],
+  "MP":["44","A8s","K9s","J9s","KQo"],
+  "LJ":["33","A7s","A4s-A5s","Q9s","T8s","ATo"],
+  "HJ":["22","A6s","A2s-A3s","K8s","87s","KJo","QJo"],
+  "CO":["K5s-K7s","Q8s","J8s","T7s","97s","76s","65s","A9o","KTo","QTo","JTo"],
+  "BTN":["K2s-K4s","Q5s-Q7s","J6s-J7s","T6s","96s","86s","75s","64s","54s",
+         "A2o-A8o","K8o-K9o","Q9o","J9o","T9o","98o"]
+};
+const OPEN_ORDER=["UTG","UTG+1","MP","LJ","HJ","CO","BTN"];
+const RFI={};
+(function(){let acc=[];OPEN_ORDER.forEach(p=>{acc=acc.concat(RFI_ADD[p]);RFI[p]=S(...acc);});
+  RFI["SB"]=minus(RFI["BTN"],S("A2o-A4o","K8o","98o","64s","86s","T6s"));})();
+
+const WEAK_O=S("A2o-A9o","K8o-K9o","KTo","Q9o","QTo","J9o","JTo","T9o","98o","ATo");
+const ISO={};
+["UTG","UTG+1","MP","LJ","HJ","CO","BTN","SB"].forEach(p=>ISO[p]=minus(RFI[p],WEAK_O));
+ISO["BB"]=ISO["SB"];
+const TIGHTER2={"UTG":"UTG","UTG+1":"UTG","MP":"UTG","LJ":"UTG+1","HJ":"MP","CO":"LJ","BTN":"HJ","SB":"CO","BB":"CO"};
+
+const VS_RAISE={
+  EARLY:{label:"ранньої позиції (UTG–MP)",raise:S("QQ+","AKs","AKo"),
+    call:{POS:S("22-JJ","AQs","AJs","KQs","QJs","JTs"),SB:S("88-JJ","AQs","AJs","KQs"),
+          BB:S("22-JJ","AQs","AJs","ATs","KQs","KJs","QJs","JTs","AQo")},
+    note:"Рейз з UTG–MP на 9-max — це майже завжди справжня рука. Не вигадуй тут блефових 3-бетів: колуй у позиції з потенціалом, решту скидай."},
+  MID:{label:"середньої позиції (LJ–CO)",raise:S("TT+","AJs+","AQo+"),
+    call:{POS:S("22-99","ATs","KJs","KQs","QJs","JTs","T9s","AJo"),SB:S("77-99","ATs","KQs","AJo"),
+          BB:S("22-99","A2s-ATs","KTs+","Q9s+","J9s+","T9s","98s","87s","ATo","AJo","KQo","KJo","QJo","JTo")},
+    note:"Діапазон опенера вже ширший, тому 3-бетиш валью-руками, які б'ють його калл-діапазон. AJs і TT тут — рейз, а не колл."},
+  LATE:{label:"BTN або SB (стіл-рейз)",raise:S("99+","AJs+","KQs","AQo+","A4s-A5s"),
+    call:{POS:S("22-88","A7s-ATs","KJs","QJs","JTs","T9s","AJo","KQo"),SB:S("66-88","ATs","KQs"),
+          BB:S("22-88","A2s-ATs","K7s+","Q8s+","J8s+","T8s+","97s+","86s+","75s+","65s","54s",
+               "A8o-AJo","KTo+","QTo+","JTo","T9o")},
+    note:"Найширший діапазон опенера за столом. З BB захищайся широко — ти вже вклав блайнд і закриваєш торги. З SB навпаки: 3-бет або фолд."}
+};
+const VS_3BET={raise:S("KK+","AKs"),call:S("TT-QQ","AKo","AQs"),
+  note:"На 5/10 3-бет майже завжди означає реальну руку. Це той спот, де дисциплінований фолд коштує дешевше за будь-яку креативність."};
+
+const NOTES={
+  "UTG":"Дев'ять гравців за спиною. Відкривай лише те, що не соромно грати в мультипоті.",
+  "UTG+1":"Майже те саме, що UTG. Спокуса «трохи розширитись» тут коштує найдорожче.",
+  "MP":"З'являється місце для маневру, але попереду ще п'ять гравців.",
+  "LJ":"Перша позиція, де можна відкривати ATo і слабкі тузи. Слабкі — лише в масті.",
+  "HJ":"Три позиції до баттона. Додаються бродвейні офсьюти і дрібні конектори в масті.",
+  "CO":"Відкриваєш, щоб забрати пот одразу або грати в позиції проти блайндів.",
+  "BTN":"Найприбутковіша позиція за столом. Вінрейт тут будується на частоті відкриття.",
+  "SB":"Ніколи не лімпи з SB. Або рейз, або фолд.",
+  "BB":"Ти вже вклав блайнд і закриваєш торги — тому захищаєшся значно ширше."
+};
+const ACTION_ORDER=["UTG","UTG+1","MP","LJ","HJ","CO","BTN","SB","BB"];
+const POSTFLOP_ORDER=["SB","BB","UTG","UTG+1","MP","LJ","HJ","CO","BTN"];
+const BUCKET=p=>["UTG","UTG+1","MP"].includes(p)?"EARLY":(["LJ","HJ","CO"].includes(p)?"MID":"LATE");
+const HERO_CTX=p=>p==="BB"?"BB":(p==="SB"?"SB":"POS");
+const SCENARIOS={rfi:{label:"Відкриття",short:"RFI"},iso:{label:"Проти лімперів",short:"ІЗО"},
+  vsraise:{label:"Проти рейзу",short:"3-БЕТ"},vs3bet:{label:"Проти 3-бету",short:"vs3Б"}};
+const WEIGHTED=(()=>{const o=[];ALL_HANDS.forEach(h=>{const n=combos(h)/2;for(let k=0;k<n;k++)o.push(h);});return o;})();
+const TEMPTING=S("22-AA","A2s-AKs","KTs+","QTs+","JTs","T9s","98s","ATo-AKo","KJo-KQo","QJo","JTo","A9o","KTo");
+
+/* ══════════════════════ СХОВИЩЕ ══════════════════════ */
+const KEY="poker_trainer_v3";
+const EMPTY={
+  pre:{total:0,correct:0,best:0,byPos:{},byScenPos:{},byScen:{},missed:{},log:[],recent:[],
+       drill:{streaks:{},recent:{}}},
+  post:{total:0,correct:0,best:0,byCat:{},byTex:{},byMode:{},log:[],unlocked:false,seen:false}
+};
+function load(){
+  const base=JSON.parse(JSON.stringify(EMPTY));
+  try{const r=localStorage.getItem(KEY);
+    if(r){const p=JSON.parse(r);
+      const o={pre:Object.assign(base.pre,p.pre||{}),post:Object.assign(base.post,p.post||{})};
+      /* міграція зі старих версій: нові поля могли не існувати */
+      if(!o.pre.byScenPos||typeof o.pre.byScenPos!=="object") o.pre.byScenPos={};
+      if(!o.pre.drill||typeof o.pre.drill!=="object") o.pre.drill={streaks:{},recent:{}};
+      if(!o.pre.drill.streaks) o.pre.drill.streaks={};
+      if(!o.pre.drill.recent) o.pre.drill.recent={};
+      return o;}
+  }catch(e){}
+  return base;
+}
+let DB=load();
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(DB));}catch(e){}};
+
+/* ══════════════════════ ВОРОТА МІЖ ЕТАПАМИ ══════════════════════ */
+const GATE={hands:100,acc:80,scenMin:15,posMin:8,posCount:8,window:150};
+function gateStatus(){
+  const P=DB.pre;
+  const W=(P.recent||[]).slice(-GATE.window);
+  const acc=W.length?W.filter(e=>e.ok).length/W.length*100:0;
+  const agg=key=>{const o={};W.forEach(e=>{const d=o[e[key]]||{t:0,c:0};d.t++;if(e.ok)d.c++;o[e[key]]=d;});return o;};
+  const sO=agg("s"),pO=agg("p");
+  const scen=Object.entries(sO).filter(([,d])=>d.t>=GATE.scenMin).map(([k,d])=>({k,p:d.c/d.t*100,t:d.t}));
+  const pos=Object.entries(pO).filter(([,d])=>d.t>=GATE.posMin).map(([k,d])=>({k,p:d.c/d.t*100,t:d.t}));
+  const c1=P.total>=GATE.hands;
+  const c2=W.length>=GATE.hands&&acc>=GATE.acc;
+  const c3=W.length>=GATE.hands&&scen.length>0&&scen.every(s=>s.p>=GATE.acc);
+  const c4=W.length>=GATE.hands&&pos.length>=GATE.posCount&&pos.every(s=>s.p>=GATE.acc);
+  return {c1,c2,c3,c4,ok:c1&&c2&&c3&&c4,total:P.total,acc,scen,pos,win:W.length};
+}
+function checkUnlock(){
+  if(DB.post.unlocked) return false;
+  if(gateStatus().ok){ DB.post.unlocked=true; save(); return true; }
+  return false;
+}
+function renderStageBar(){
+  const g=gateStatus();
+  document.getElementById("stg-pre-info").textContent =
+    DB.pre.total ? `${DB.pre.total} рук · ${Math.round(g.acc)}%` : "почни звідси";
+  const post=document.getElementById("stg-post");
+  const lm=document.getElementById("lockmark");
+  if(DB.post.unlocked){
+    post.classList.remove("locked");
+    lm.classList.add("hidden");
+    const A=DB.post;
+    document.getElementById("stg-post-info").textContent =
+      A.total ? `${A.total} спотів · ${Math.round(A.correct/A.total*100)}%` : "відкрито";
+  } else {
+    post.classList.add("locked");
+    lm.classList.remove("hidden");
+    const done=[g.c1,g.c2,g.c3,g.c4].filter(Boolean).length;
+    document.getElementById("stg-post-info").textContent = `виконано ${done} з 4 умов`;
+  }
+}
+function renderLock(){
+  const g=gateStatus();
+  const bar=v=>`<div class="pbar"><i style="width:${Math.max(0,Math.min(100,v))}%"></i></div>`;
+  const worstScen=g.scen.slice().sort((a,b)=>a.p-b.p)[0];
+  const worstPos=g.pos.slice().sort((a,b)=>a.p-b.p)[0];
+  const item=(done,title,val,desc,prog)=>`
+    <div class="crit ${done?"done":""}">
+      <div class="mk">${done?"✓":"·"}</div>
+      <div class="txt"><div class="t"><span>${title}</span><em>${val}</em></div>
+        <div class="d">${desc}</div>${bar(prog)}</div>
+    </div>`;
+  document.getElementById("post-lock").innerHTML=`
+    <div class="lock-head">
+      <b>Етап 2 закритий</b>
+      <span>Постфлоп без твердого префлопу не має сенсу: ти навчишся приймати правильні
+      рішення на флопі з руками, яких там не мало бути. Умови рахуються по
+      <strong style="color:var(--ivory)">останніх ${GATE.window} руках</strong> — тобто по поточній формі,
+      а не по всій історії. Невдалий старт нічого не блокує назавжди.</span>
+    </div>
+    ${item(g.c1,"Зіграно рук префлопу",`${g.total} / ${GATE.hands}`,
+      "Дистанція, на якій випадковість перестає впливати на статистику.",g.total/GATE.hands*100)}
+    ${item(g.c2,"Точність за поточну форму",`${g.win?Math.round(g.acc):0}% / ${GATE.acc}%`,
+      `Середній результат за останні ${Math.min(g.win,GATE.window)} рук.`,g.acc/GATE.acc*100)}
+    ${item(g.c3,"Кожен сценарій ≥ 80%",
+      g.scen.length?`найгірший: ${SCENARIOS[worstScen.k].short} ${Math.round(worstScen.p)}%`:"немає даних",
+      `Рахуються сценарії, де у вікні ${GATE.scenMin}+ рук. Не можна закрити етап, витягнувши середнє одним сценарієм.`,
+      g.scen.length?worstScen.p/GATE.acc*100:0)}
+    ${item(g.c4,"Кожна позиція ≥ 80%",
+      g.pos.length?`${g.pos.length} позицій, найгірша: ${worstPos.k} ${Math.round(worstPos.p)}%`:"немає даних",
+      `Рахуються позиції з ${GATE.posMin}+ руками у вікні, потрібно щонайменше ${GATE.posCount}. Слабка позиція за реальним столом коштує так само, як слабкий сценарій.`,
+      g.pos.length?Math.min(worstPos.p/GATE.acc,g.pos.length/GATE.posCount)*100:0)}
+    <p class="note"><strong>Після відкриття етап залишається доступним назавжди.</strong>
+    Тимчасова просадка точності його не забирає — сенс воріт у тому, щоб ти дійшов до постфлопу
+    підготовленим, а не в тому, щоб карати за погану сесію.</p>`;
+}
+
+/* ══════════════════════ ЕТАП 1 : ПРЕФЛОП ══════════════════════ */
+let preStreak=0, preQ=null, preAnswered=false;
+let activeScenarios=new Set(["rfi"]);
+
+/* ---------- DRILL: вузьке тренування по накопичених ліках ---------- */
+const DRILL={poolShare:.70, retire:5, window:50, exitAcc:90, minKeys:3};
+let drillOn=false, drillScen=null;
+
+const dKey=(scen,pos,hand)=>scen+"|"+pos+"|"+hand;
+
+/* пул = помилки цього сценарію, крім тих, що вже закриті 5 правильними поспіль */
+function drillPool(scen){
+  const P=DB.pre, st=P.drill.streaks||{}, agg={};
+  (P.log||[]).filter(e=>e.s===scen).forEach(e=>{
+    const k=e.p+"|"+e.h; agg[k]=(agg[k]||0)+1;});
+  return Object.entries(agg)
+    .filter(([k])=>(st[scen+"|"+k]||0)<DRILL.retire)
+    .map(([k,n])=>({pos:k.split("|")[0],hand:k.split("|")[1],n}))
+    .sort((a,b)=>b.n-a.n);
+}
+function drillStats(scen){
+  const w=(DB.pre.drill.recent[scen]||[]).slice(-DRILL.window);
+  const acc=w.length?Math.round(w.filter(x=>x).length/w.length*100):0;
+  return {n:w.length,acc,done:w.length>=DRILL.window&&acc>=DRILL.exitAcc};
+}
+/* 70% руки з пулу (зважені за частотою помилки) + 30% контролі з тих самих позицій */
+function drillSpot(){
+  const pool=drillPool(drillScen);
+  if(!pool.length) return null;
+  const positions=[...new Set(pool.map(x=>x.pos))];
+  if(Math.random()<DRILL.poolShare){
+    const bag=[]; pool.forEach(it=>{for(let i=0;i<it.n;i++) bag.push(it);});
+    const it=pick(bag);
+    return preBuildSpot({scen:drillScen,heroPos:it.pos,hand:it.hand});
+  }
+  const pos=pick(positions);
+  const ban=pool.filter(x=>x.pos===pos).map(x=>x.hand);
+  return preBuildSpot({scen:drillScen,heroPos:pos,hand:null,ban});
+}
+
+function preBuildSpot(force){
+  const P=DB.pre;
+  const scen=force?force.scen:pick([...activeScenarios]);
+  const seats={}; ACTION_ORDER.forEach(p=>seats[p]=null);
+  let heroPos,ranges,options,prompt,potBB,explainExtra="";
+
+  if(scen==="rfi"){
+    heroPos=force?force.heroPos:pick(ACTION_ORDER.slice(0,8));
+    ACTION_ORDER.slice(0,ACTION_ORDER.indexOf(heroPos)).forEach(p=>seats[p]="fold");
+    ranges={raise:RFI[heroPos],call:new Set()};
+    options=[{k:"raise",l:"Рейз 3bb",c:"primary"},{k:"fold",l:"Фолд",c:"ghost"}];
+    prompt="Усі перед тобою скинули. Твій хід."; potBB=1.5; explainExtra=NOTES[heroPos];
+  } else if(scen==="iso"){
+    const hi=force?Math.max(1,ACTION_ORDER.indexOf(force.heroPos)):1+Math.floor(Math.random()*8);
+    heroPos=ACTION_ORDER[hi];
+    const before=ACTION_ORDER.slice(0,hi);
+    const nLimp=Math.random()<0.55?1:2;
+    const limpers=[],pool=[...before];
+    for(let k=0;k<Math.min(nLimp,pool.length);k++)
+      limpers.push(pool.splice(Math.floor(Math.random()*pool.length),1)[0]);
+    before.forEach(p=>seats[p]=limpers.includes(p)?"limp":"fold");
+    const useRange=limpers.length>=2?ISO[TIGHTER2[heroPos]]:ISO[heroPos];
+    ranges={raise:useRange,call:new Set()};
+    options=[{k:"raise",l:"Ізо-рейз",c:"primary"},{k:"fold",l:"Фолд",c:"ghost"}];
+    prompt=`${limpers.length===1?"Лімпер":"Два лімпери"} попереду. Розмір ізо-рейзу: ${4+limpers.length}bb.`;
+    potBB=1.5+limpers.length;
+    explainExtra=limpers.length>=2
+      ?"Проти двох лімперів звужуйся на дві позиції: мультипот з'їдає маргінальні руки."
+      :"Оверлімп тут свідомо відсутній — на мікролімітах це чистий злив. Або ізолюйся, або скидай.";
+  } else if(scen==="vsraise"){
+    let ri,hi;
+    if(force){ hi=Math.max(1,ACTION_ORDER.indexOf(force.heroPos));
+               ri=Math.floor(Math.random()*Math.min(hi,7)); }
+    else { ri=Math.floor(Math.random()*7); hi=ri+1+Math.floor(Math.random()*(8-ri)); }
+    const raiser=ACTION_ORDER[ri]; heroPos=ACTION_ORDER[hi];
+    ACTION_ORDER.slice(0,ri).forEach(p=>seats[p]="fold");
+    seats[raiser]="raise";
+    ACTION_ORDER.slice(ri+1,hi).forEach(p=>seats[p]="fold");
+    const def=VS_RAISE[BUCKET(raiser)];
+    ranges={raise:def.raise,call:def.call[HERO_CTX(heroPos)]};
+    options=[{k:"raise",l:"3-бет",c:"primary"},{k:"call",l:"Колл",c:"mid"},{k:"fold",l:"Фолд",c:"ghost"}];
+    prompt=`Рейз 3bb з ${raiser}. Ти на ${heroPos}.`; potBB=4.5; explainExtra=def.note;
+  } else {
+    const hi=force?Math.min(6,ACTION_ORDER.indexOf(force.heroPos)):Math.floor(Math.random()*7);
+    heroPos=ACTION_ORDER[hi];
+    const ti=hi+1+Math.floor(Math.random()*(8-hi)),tb=ACTION_ORDER[ti];
+    ACTION_ORDER.slice(0,hi).forEach(p=>seats[p]="fold");
+    seats[heroPos]="raise";
+    ACTION_ORDER.slice(hi+1,ti).forEach(p=>seats[p]="fold");
+    seats[tb]="3bet";
+    ranges={raise:VS_3BET.raise,call:VS_3BET.call};
+    options=[{k:"raise",l:"4-бет",c:"primary"},{k:"call",l:"Колл",c:"mid"},{k:"fold",l:"Фолд",c:"ghost"}];
+    prompt=`Ти відкрив з ${heroPos}, ${tb} поставив 3-бет 10bb.`; potBB=14.5; explainExtra=VS_3BET.note;
+  }
+
+  const relevant=[...union(ranges.raise,ranges.call,TEMPTING)];
+  let hand,isControl=false;
+  if(force&&force.hand){
+    hand=force.hand;
+  } else if(force){
+    /* контрольна рука: та сама позиція, але НЕ з пулу помилок */
+    isControl=true;
+    const ban=new Set(force.ban||[]);
+    const cand=relevant.filter(h=>!ban.has(h));
+    hand=pick(cand.length?cand:relevant);
+  } else {
+    const missedKeys=Object.keys(P.missed).filter(k=>P.missed[k]>0&&k.startsWith(scen+"|"));
+    const r=Math.random();
+    if(missedKeys.length>=4&&r<0.25) hand=pick(missedKeys).split("|")[2];
+    else hand=r<0.70?pick(relevant):pick(WEIGHTED);
+  }
+
+  const correct=ranges.raise.has(hand)?"raise":(ranges.call.has(hand)?"call":"fold");
+  return {scen,heroPos,seats,ranges,options,prompt,potBB,correct,hand,
+    cards:dealFromHand(hand),explainExtra,drill:!!force,isControl};
+}
+
+function preRenderTable(){
+  const wrap=document.getElementById("pre-felt");
+  wrap.querySelectorAll(".seat").forEach(n=>n.remove());
+  const start=ACTION_ORDER.indexOf(preQ.heroPos);
+  const TXT={fold:["Фолд",""],limp:["Лімп 1bb","limp"],raise:["Рейз 3bb","raise"],"3bet":["3-бет 10bb","threebet"]};
+  for(let i=0;i<9;i++){
+    const pos=ACTION_ORDER[(start+i)%9];
+    const ang=(90+i*40)*Math.PI/180;
+    const el=document.createElement("div");
+    el.className="seat"+(i===0?" hero":"")+(preQ.seats[pos]==="fold"?" folded":"");
+    el.style.left=(50+43*Math.cos(ang))+"%"; el.style.top=(50+40*Math.sin(ang))+"%";
+    const a=preQ.seats[pos]?TXT[preQ.seats[pos]]:["",""];
+    el.innerHTML=`<div class="lbl">${pos}${pos==="BTN"?'<span class="btn-chip">D</span>':""}</div>
+                  <div class="act ${a[1]}">${a[0]}</div>`;
+    wrap.appendChild(el);
+  }
+  document.getElementById("pre-pot").textContent=preQ.potBB+" bb";
+}
+function preRender(){
+  if(drillOn){
+    const q=drillSpot();
+    if(!q){ drillOn=false; drillScen=null; }
+    else preQ=q;
+  }
+  if(!drillOn) preQ=preBuildSpot();
+  preAnswered=false;
+  renderDrillBar();
+  preRenderTable();
+  document.getElementById("pre-cards").innerHTML=preQ.cards.map(c=>cardHTML(c,true)).join("");
+  document.getElementById("pre-hand").textContent=preQ.hand;
+  document.getElementById("pre-prompt").textContent=preQ.prompt;
+  const acts=document.getElementById("pre-acts");
+  acts.innerHTML=preQ.options.map((o,i)=>
+    `<button class="act-btn ${o.c}" data-k="${o.k}">${o.l}<small>клавіша ${i+1}</small></button>`).join("");
+  acts.querySelectorAll("button").forEach(b=>b.onclick=()=>preAnswer(b.dataset.k));
+  acts.classList.remove("hidden");
+  document.getElementById("pre-verdict").innerHTML="";
+}
+const actName=(k,scen)=>k==="call"?"колл":(k==="fold"?"фолд":
+  (scen==="vsraise"?"3-бет":(scen==="vs3bet"?"4-бет":(scen==="iso"?"ізо-рейз":"рейз"))));
+
+function preAnswer(k){
+  if(preAnswered) return; preAnswered=true;
+  const P=DB.pre, ok=k===preQ.correct, key=`${preQ.scen}|${preQ.heroPos}|${preQ.hand}`;
+  P.total++; if(ok) P.correct++;
+  const bp=P.byPos[preQ.heroPos]||{t:0,c:0}; bp.t++; if(ok)bp.c++; P.byPos[preQ.heroPos]=bp;
+  const bs=P.byScen[preQ.scen]||{t:0,c:0}; bs.t++; if(ok)bs.c++; P.byScen[preQ.scen]=bs;
+  /* окремий зріз: позиція В МЕЖАХ сценарію */
+  if(!P.byScenPos[preQ.scen]) P.byScenPos[preQ.scen]={};
+  const sp=P.byScenPos[preQ.scen][preQ.heroPos]||{t:0,c:0};
+  sp.t++; if(ok)sp.c++; P.byScenPos[preQ.scen][preQ.heroPos]=sp;
+  P.missed[key]=Math.max(0,(P.missed[key]||0)+(ok?-1:2));
+  if(P.missed[key]===0) delete P.missed[key];
+  if(!ok){ P.log.push({s:preQ.scen,p:preQ.heroPos,h:preQ.hand,ch:k,co:preQ.correct,t:Date.now()});
+    if(P.log.length>500) P.log.splice(0,P.log.length-500); }
+  /* drill: серія по конкретній руці + вікно точності */
+  const dk=dKey(preQ.scen,preQ.heroPos,preQ.hand);
+  if(ok){ if(preQ.drill&&!preQ.isControl) P.drill.streaks[dk]=(P.drill.streaks[dk]||0)+1; }
+  else P.drill.streaks[dk]=0;
+  if(preQ.drill){
+    const r=P.drill.recent[preQ.scen]||[];
+    r.push(ok?1:0); if(r.length>200) r.splice(0,r.length-200);
+    P.drill.recent[preQ.scen]=r;
+  }
+  if(!P.recent) P.recent=[];
+  P.recent.push({s:preQ.scen,p:preQ.heroPos,ok:ok?1:0});
+  if(P.recent.length>400) P.recent.splice(0,P.recent.length-400);
+  preStreak=ok?preStreak+1:0; P.best=Math.max(P.best,preStreak);
+  const justUnlocked=checkUnlock();
+  save(); preRenderStats(); renderStageBar();
+  if(justUnlocked) preShowBanner();
+
+  document.getElementById("pre-acts").classList.add("hidden");
+  const v=document.getElementById("pre-verdict");
+  v.className="verdict "+(ok?"ok":"no");
+  const tag=preQ.drill?(preQ.isControl?`<span class="tagctl">контроль</span>`
+    :`<span class="tagctl">лік · серія ${P.drill.streaks[dk]||0}/${DRILL.retire}</span>`):"";
+  v.innerHTML=`<h3>${ok?"Правильно":"Помилка"}${tag}</h3>
+    <p>${preQ.hand} на ${preQ.heroPos} — <strong>${actName(preQ.correct,preQ.scen)}</strong>. ${preQ.explainExtra}</p>
+    <div class="grid compact" id="pre-vgrid"></div>
+    <button class="next" id="pre-next">Далі · пробіл</button>`;
+  paintGrid(document.getElementById("pre-vgrid"),preQ.ranges,preQ.hand);
+  document.getElementById("pre-next").onclick=preRender;
+}
+function renderDrillBar(){
+  const el=document.getElementById("pre-drill");
+  const scen=drillOn?drillScen:(activeScenarios.size===1?[...activeScenarios][0]:null);
+  if(!scen){
+    el.innerHTML=`<div class="drill"><div class="txt">Drill доступний, коли увімкнено
+      <b>рівно один сценарій</b> — ліки тренуються окремо для кожного.</div></div>`;
+    return;
+  }
+  const pool=drillPool(scen), st=drillStats(scen), name=SCENARIOS[scen].label;
+  if(drillOn){
+    const w=Math.min(100,Math.round(st.n/DRILL.window*100));
+    el.innerHTML=`<div class="drill live">
+      <div class="txt">DRILL · ${name} — <b>${pool.length} рук у пулі</b><br>
+        останні ${st.n}/${DRILL.window}: <b>${st.acc}%</b> · вихід при ${DRILL.exitAcc}%
+        ${st.done?" · <b>норму виконано</b>":""}</div>
+      <button class="stop" id="drill-toggle">Вийти з drill</button>
+      <div class="bar"><i class="${st.done?"ready":""}" style="width:${w}%"></i></div></div>`;
+  } else {
+    const can=pool.length>=DRILL.minKeys;
+    el.innerHTML=`<div class="drill">
+      <div class="txt">${can
+        ?`Пул ліків «${name}»: <b>${pool.length} рук</b> на позиціях
+           ${[...new Set(pool.map(x=>x.pos))].join(", ")}.<br>
+           Drill дає ${Math.round(DRILL.poolShare*100)}% цих рук + ${Math.round((1-DRILL.poolShare)*100)}%
+           контролів з тих самих позицій.`
+        :`Пул ліків «${name}» замалий (${pool.length}, треба ${DRILL.minKeys}+).
+           Зіграй звичайний режим — помилки наберуться самі.`}</div>
+      <button id="drill-toggle" ${can?"":"disabled"}>Запустити drill</button></div>`;
+  }
+  const btn=document.getElementById("drill-toggle");
+  if(btn) btn.onclick=()=>{
+    if(drillOn){ drillOn=false; drillScen=null; }
+    else { drillScen=scen; drillOn=true; DB.pre.drill.recent[scen]=[]; save(); }
+    preRender();
+  };
+}
+function preShowBanner(){
+  document.getElementById("pre-banner").innerHTML=`
+    <div class="banner"><b>Етап 2 відкрито</b>
+    <span>Префлоп закритий за всіма чотирма умовами. Постфлоп доступний у перемикачі етапів вгорі —
+    але спершу зайди у «Правила» і прочитай схему рішень до першої сесії.</span></div>`;
+}
+function paintGrid(el,ranges,highlight){
+  el.innerHTML="";
+  for(let i=0;i<13;i++)for(let j=0;j<13;j++){
+    const h=handAt(i,j),d=document.createElement("div");
+    d.className="cell"+(ranges.raise.has(h)?" raise":(ranges.call.has(h)?" call":""))
+      +(i===j?" pair":"")+(h===highlight?" hi":"");
+    d.textContent=h; el.appendChild(d);
+  }
+}
+function preRenderStats(){
+  const P=DB.pre,acc=P.total?Math.round(P.correct/P.total*100):0;
+  document.getElementById("pre-s-streak").textContent=preStreak;
+  document.getElementById("pre-s-acc").textContent=acc+"%";
+  document.getElementById("pre-s-total").textContent=P.total;
+  document.getElementById("pre-s-best").textContent=P.best;
+}
+function preRenderStatsTab(){
+  const P=DB.pre,acc=P.total?Math.round(P.correct/P.total*100):0;
+  const cell=(name,d,min)=>{const p=d&&d.t?Math.round(d.c/d.t*100):null;
+    const cls=p===null?"":(d.t>=min&&p<80?" warn":(d.t>=min&&p>=80?" good":""));
+    return `<div class="pp${cls}"><b>${name}</b><span>${p===null?"—":p+"% · "+d.t}</span></div>`;};
+  const g=gateStatus();
+  document.getElementById("pre-stats-body").innerHTML=`
+    <div class="strip"><div class="sc"><b>${P.total}</b><span>усього рук</span></div>
+      <div class="sc"><b>${acc}%</b><span>за весь час</span></div>
+      <div class="sc"><b>${g.win?Math.round(g.acc):0}%</b><span>поточна форма</span></div>
+      <div class="sc"><b>${P.best}</b><span>рекордна серія</span></div></div>
+    <h4>За сценаріями · поріг ${GATE.acc}% при ${GATE.scenMin}+ руках</h4>
+    <div class="perpos">${Object.keys(SCENARIOS).map(k=>cell(SCENARIOS[k].short,P.byScen[k],GATE.scenMin)).join("")}</div>
+    <h4>За позиціями · усі сценарії разом · поріг ${GATE.acc}% при ${GATE.posMin}+ руках</h4>
+    <div class="perpos">${ACTION_ORDER.map(p=>cell(p,P.byPos[p],GATE.posMin)).join("")}</div>
+    <p class="note">Тут показана статистика за весь час. Ворота до етапу 2 рахуються по
+    останніх ${GATE.window} руках, тому цифри на екрані блокування можуть відрізнятись —
+    там твоя поточна форма, а не історія.</p>
+    <div class="foot"><span>Прогрес зберігається в цьому браузері</span>
+      <button class="link" id="pre-reset">Скинути прогрес префлопу</button></div>`;
+  document.getElementById("pre-reset").onclick=()=>{
+    DB.pre=JSON.parse(JSON.stringify(EMPTY.pre)); preStreak=0; drillOn=false; drillScen=null; save();
+    preRenderStats(); preRenderStatsTab(); renderStageBar(); renderLock();
+    renderScenarioChips(); preRender();
+  };
+}
+
+/* ---- вкладка діапазонів ---- */
+let rgScen="rfi",rgSub="BTN";
+const RG_SUBS={rfi:["UTG","UTG+1","MP","LJ","HJ","CO","BTN","SB"],
+  iso:["UTG+1","MP","LJ","HJ","CO","BTN","SB","BB"],
+  vsraise:["EARLY·POS","EARLY·BB","MID·POS","MID·BB","LATE·POS","LATE·SB","LATE·BB"],
+  vs3bet:["Загальне правило"]};
+function renderRangesTab(){
+  const sc=document.getElementById("rg-scenario");
+  sc.innerHTML=Object.keys(SCENARIOS).map(k=>
+    `<button class="chip ${k===rgScen?"on":""}" data-k="${k}">${SCENARIOS[k].label}</button>`).join("");
+  sc.querySelectorAll("button").forEach(b=>b.onclick=()=>{rgScen=b.dataset.k;rgSub=RG_SUBS[rgScen][0];renderRangesTab();});
+  const sb=document.getElementById("rg-sub");
+  sb.innerHTML=RG_SUBS[rgScen].map(s=>`<button class="chip soft ${s===rgSub?"on":""}" data-k="${s}">${s}</button>`).join("");
+  sb.querySelectorAll("button").forEach(b=>b.onclick=()=>{rgSub=b.dataset.k;renderRangesTab();});
+  let ranges,note,lbl;
+  if(rgScen==="rfi"){ranges={raise:RFI[rgSub],call:new Set()};lbl="Рейз";
+    note=NOTES[rgSub]+" Це діапазон на випадок, коли пот ще ніхто не відкрив.";}
+  else if(rgScen==="iso"){ranges={raise:ISO[rgSub],call:new Set()};lbl="Ізо-рейз";
+    note=`Ізоляція одного лімпера з ${rgSub}. Розмір: 4bb + 1bb за кожного лімпера. Проти двох лімперів бери діапазон позиції ${TIGHTER2[rgSub]}. Слабкі офсьютні руки прибрані — у мультипоті вони грають погано навіть у позиції.`;}
+  else if(rgScen==="vsraise"){const [b,c]=rgSub.split("·");
+    ranges={raise:VS_RAISE[b].raise,call:VS_RAISE[b].call[c]};lbl="3-бет";
+    note=`Реакція на рейз з ${VS_RAISE[b].label}, коли ти ${c==="BB"?"на великому блайнді":c==="SB"?"на малому блайнді":"в позиції після рейзера"}. ${VS_RAISE[b].note}`;}
+  else {ranges={raise:VS_3BET.raise,call:VS_3BET.call};lbl="4-бет";
+    note=VS_3BET.note+" Діапазон свідомо спрощений: на мікролімітах дисципліна тут важить більше за точність.";}
+  paintGrid(document.getElementById("rg-grid"),ranges,null);
+  document.getElementById("lg-raise").textContent=lbl;
+  document.getElementById("rg-pct").textContent=pct(union(ranges.raise,ranges.call)).toFixed(1)+"%";
+  document.getElementById("rg-pctlbl").textContent=ranges.call.size
+    ?`рук у грі · ${pct(ranges.raise).toFixed(1)}% рейз, ${pct(ranges.call).toFixed(1)}% колл`:"рук у діапазоні";
+  document.getElementById("rg-note").textContent=note;
+}
+
+/* ---- розбір префлопу ---- */
+function handCat(h){
+  const pair=h.length===2,s=h[2]==="s",a=RI(h[0]),b=RI(h[1]);
+  if(pair) return a<=RI("T")?"pairHigh":(a<=RI("6")?"pairMid":"pairLow");
+  if(h[0]==="A") return s?(b<=RI("T")?"aceSuitedHigh":"aceSuitedLow"):(b<=RI("T")?"broadwayOffsuit":"aceOffsuit");
+  if(s){ if(a<=RI("T")&&b<=RI("T")) return "broadwaySuited";
+    return (b-a<=2)?"suitedConn":"suitedGap"; }
+  return (a<=RI("T")&&b<=RI("T"))?"broadwayOffsuit":"trash";
+}
+const CAT_LABEL={pairHigh:"Старші пари (TT+)",pairMid:"Середні пари (66–99)",pairLow:"Дрібні пари (22–55)",
+  aceSuitedHigh:"Старші тузи в масті (ATs+)",aceSuitedLow:"Слабкі тузи в масті (A2s–A9s)",
+  broadwaySuited:"Бродвеї в масті",suitedGap:"Гепери в масті (K5s, Q8s…)",
+  suitedConn:"Конектори в масті (54s–98s)",broadwayOffsuit:"Офсьютні бродвеї (AJo, KQo, KJo…)",
+  aceOffsuit:"Слабкі офсьютні тузи (A2o–A9o)",trash:"Слабкі офсьютні руки"};
+const FIX={
+  pairLow:{loose:"Дрібні пари — не автоматичний опен. З ранньої позиції ти сет-майниш проти восьми опонентів і майже завжди поза позицією: імплайди не покривають те, скільки разів ти промахуєшся повз сет. 22–44 відкриваються з LJ і пізніше.",
+           tight:"З CO, BTN і SB дрібні пари відкриваються завжди. Там цінність не в сеті, а в тому, як часто ти просто забираєш блайнди."},
+  pairMid:{loose:"Перевір, чи не плутаєш 55 з 66 — межа тут проходить рівно між ними.",
+           tight:"66–99 — твердий опен з будь-якої позиції, включно з UTG. Якщо ти їх скидаєш, ранній діапазон стає надто вузьким."},
+  aceSuitedLow:{loose:"A2s–A6s — руки для пізньої позиції. З UTG–MP вони доміновані всім, чим тебе колують: флеш приходить нечасто, а топ-пара зі слабким кікером коштує грошей.",
+                tight:"З LJ і далі слабкі тузи в масті відкриваються нормально: є і флеш-потенціал, і блокер на туза."},
+  aceSuitedHigh:{loose:"ATs+ у відкритті помилкою не буває — перевір позицію.",
+                 tight:"ATs, AJs, AQs, AKs відкриваються звідусіль без винятків. Якщо ти їх скидаєш — ти надто затиснутий."},
+  broadwayOffsuit:{loose:"Головна пастка 9-max. KJo, QJo, KQo виглядають красиво, але грають погано: ти або виграєш крихітний пот, або програєш великий тому, хто тебе домінує. KJo та QJo — не раніше HJ, ATo — не раніше LJ.",
+                   tight:"AJo та KQo з середньої позиції — стандартні опени. Не плутай дисципліну з пасивністю."},
+  aceOffsuit:{loose:"A2o–A9o — це BTN, і майже нічого більше. З інших позицій ти систематично домінований: коли туз приходить на флоп, у тебе гірший кікер — і саме тоді пот стає великим.",
+              tight:"З BTN весь діапазон A2o–A8o відкривається. Це не про силу руки, а про частоту атак на два блайнди."},
+  suitedConn:{loose:"Конектори в масті живуть з позиції та імплайдів. З ранніх позицій ти не отримуєш ні того, ні іншого.",
+              tight:"65s–98s з CO і BTN — стандартні опени: ти діятимеш останнім на всіх вулицях."},
+  suitedGap:{loose:"«В масті» ще не означає «можна». K5s, Q8s, J8s з ранніх позицій доміновані старшою картою, а флеш ти збереш у 6% випадків.",
+             tight:"З CO і BTN ці руки входять у діапазон: вони достатньо часто забирають пот одразу."},
+  broadwaySuited:{loose:"Ці руки й так у діапазоні майже звідусіль — перевір позицію.",
+                  tight:"KTs, QTs, JTs — опен з будь-якої позиції. Флеш, стріт і топ-пара одночасно."},
+  trash:{loose:"Ці руки просто не відкриваються. Коли вони проскакують — це нетерплячка після довгої серії фолдів, а не оцінка ситуації.",tight:""},
+  pairHigh:{loose:"",tight:"Старші пари відкриваються завжди і звідусіль."}
+};
+const GRP={UTG:"early","UTG+1":"early",MP:"early",LJ:"mid",HJ:"mid",CO:"mid",BTN:"late",SB:"late",BB:"late"};
+const GRP_LABEL={early:"Ранні (UTG–MP)",mid:"Середні (LJ–CO)",late:"Пізні (BTN–SB)"};
+const GRP_FIX={
+  early:{loose:"Твої найдорожчі помилки — у ранніх позиціях. Кожна зайва рука тут грається поза позицією проти шести-восьми опонентів, і саме ці роздачі закінчуються великим потом з другою найкращою рукою. Правило: сумніваєшся на UTG — фолд.",
+         tight:"У ранніх позиціях ти надто затиснутий. UTG у 9% — це вже дуже туго; ще вужче означає, що ти просто не встигаєш отримувати руки і починаєш нудьгувати."},
+  mid:{loose:"У середніх позиціях ти відкриваєш забагато. За тобою ще CO, BTN і два блайнди — чотири шанси, що тебе переставлять або заколують у позиції.",
+       tight:"Середні позиції — місце, де діапазон має відчутно розширюватись. Якщо LJ і HJ грають як UTG, ти втрачаєш найбільш недооцінені гроші за столом."},
+  late:{loose:"Навіть на BTN є межа: 42% — це не «будь-що». Найчастіше зайвим виявляється офсьютне сміття на кшталт J8o чи Q6o.",
+        tight:"BTN і SB — твої найприбутковіші позиції, а ти в них фолдиш. Втрата та сама, що й зайві руки з UTG, тільки менш помітна."}
+};
+let rvScen="rfi";
+function renderReview(){
+  const P=DB.pre;
+  const sc=document.getElementById("rv-scenario");
+  sc.innerHTML=Object.keys(SCENARIOS).map(k=>
+    `<button class="chip ${k===rvScen?"on":""}" data-k="${k}">${SCENARIOS[k].label}</button>`).join("");
+  sc.querySelectorAll("button").forEach(b=>b.onclick=()=>{rvScen=b.dataset.k;renderReview();});
+  const body=document.getElementById("rv-body");
+  const log=(P.log||[]).filter(e=>e.s===rvScen);
+  const played=P.byScen[rvScen]?P.byScen[rvScen].t:0;
+  if(!log.length){
+    body.innerHTML=played
+      ?`<div class="empty">У цьому сценарії ${played} рук і жодної помилки в журналі.</div>`
+      :`<div class="empty">Порожньо. Зіграй 40–60 рук у «Тренуванні» —<br>після цього тут з'явиться діагноз, а не просто відсотки.</div>`;
+    return;
+  }
+  const loose=log.filter(e=>e.co==="fold").length, tight=log.length-loose;
+  const acc=played?Math.round((played-log.length)/played*100):0;
+  const agg={};
+  log.forEach(e=>{const k=handCat(e.h)+"|"+(e.co==="fold"?"loose":"tight");agg[k]=(agg[k]||0)+1;});
+  const findings=Object.entries(agg).map(([k,n])=>{const [c,b]=k.split("|");
+    return {c,b,n,text:(FIX[c]||{})[b]||""};}).filter(f=>f.n>=2&&f.text).sort((a,b)=>b.n-a.n).slice(0,3);
+  const grp={};
+  log.forEach(e=>{const g=GRP[e.p],b=e.co==="fold"?"loose":"tight";
+    grp[g]=grp[g]||{loose:0,tight:0};grp[g][b]++;});
+  const wg=Object.entries(grp).sort((a,b)=>(b[1].loose+b[1].tight)-(a[1].loose+a[1].tight))[0];
+  const wgBias=wg[1].loose>=wg[1].tight?"loose":"tight";
+  const byHand={};
+  log.forEach(e=>{const k=e.p+"|"+e.h+"|"+e.co;byHand[k]=(byHand[k]||0)+1;});
+  const topHands=Object.entries(byHand).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  const biasLine=loose>tight*1.6
+    ?"Твій основний перекіс — <strong>надто широко</strong>. Ти відкриваєш руки, які треба скидати; це найдорожчий тип помилки, бо кожна така рука ще й грається далі."
+    :tight>loose*1.6
+    ?"Твій основний перекіс — <strong>надто туго</strong>. Ти скидаєш руки, які мали б відкриватись; втрата тихіша, але на дистанції вона з'їдає вінрейт з пізніх позицій."
+    :"Перекіс у обидва боки приблизно однаковий — діапазони ще не завчені як цілісні картинки, рішення приймаються на око.";
+  body.innerHTML=`
+    <div class="strip"><div class="sc"><b>${played}</b><span>зіграно рук</span></div>
+      <div class="sc"><b>${acc}%</b><span>точність</span></div>
+      <div class="sc"><b>${loose}</b><span>зайвих відкриттів</span></div>
+      <div class="sc"><b>${tight}</b><span>зайвих фолдів</span></div></div>
+    <p class="note">${biasLine}</p>
+    <h4>Головні патерни</h4>
+    ${findings.length?findings.map(f=>`<div class="finding ${f.b}">
+      <b>${CAT_LABEL[f.c]} · ${f.b==="loose"?"граєш зайве":"скидаєш зайве"} · ${f.n}×</b>
+      <span>${f.text}</span></div>`).join("")
+      :`<div class="empty">Помилки поки розсіяні — стійкого патерну не видно. Зіграй ще 50 рук.</div>`}
+    <h4>Позиції в цьому сценарії · поріг ${GATE.acc}% при ${GATE.posMin}+ руках</h4>
+    <div class="perpos">${ACTION_ORDER.map(p=>{
+      const d=((P.byScenPos||{})[rvScen]||{})[p];
+      const v=d&&d.t?Math.round(d.c/d.t*100):null;
+      const cls=v===null?"":(d.t>=GATE.posMin&&v<GATE.acc?" warn":(d.t>=GATE.posMin?" good":""));
+      return `<div class="pp${cls}"><b>${p}</b><span>${v===null?"—":v+"% · "+d.t}</span></div>`;
+    }).join("")}</div>
+    <h4>Найслабша група позицій</h4>
+    <div class="finding ${wgBias}"><b>${GRP_LABEL[wg[0]]} · ${wg[1].loose+wg[1].tight} помилок</b>
+      <span>${GRP_FIX[wg[0]][wgBias]}</span></div>
+    <h4>Конкретні руки, які треба закрити</h4>
+    ${topHands.map(([k,n])=>{const [p,h,co]=k.split("|");
+      return `<div class="mrow"><span class="h">${h}</span><span class="p">${p}</span>
+        <span class="fix ${co==="fold"?"f":""}">має бути ${actName(co,rvScen).toUpperCase()}</span>
+        <span class="n">${n}×</span></div>`;}).join("")}
+    <p class="note">Ці руки тренажер уже підмішує частіше за інші, доки ти не відповіси правильно кілька разів поспіль.</p>`;
+}
+function buildReport(){
+  const P=DB.pre,log=(P.log||[]).filter(e=>e.s===rvScen);
+  const played=P.byScen[rvScen]?P.byScen[rvScen].t:0;
+  const acc=played?Math.round((played-log.length)/played*100):0;
+  const L=[`ЗВІТ · ПРЕФЛОП · сценарій: ${SCENARIOS[rvScen].label}`,
+    `Зіграно: ${played} · точність: ${acc}% · помилок: ${log.length}`,
+    `Зайвих відкриттів: ${log.filter(e=>e.co==="fold").length} · зайвих фолдів: ${log.filter(e=>e.co!=="fold").length}`,
+    "",`ТОЧНІСТЬ ЗА ПОЗИЦІЯМИ (у цьому сценарії):`];
+  const SP=(P.byScenPos||{})[rvScen]||{};
+  let anyPos=false;
+  ACTION_ORDER.forEach(p=>{const d=SP[p];
+    if(d&&d.t){anyPos=true;L.push(`  ${p}: ${Math.round(d.c/d.t*100)}% (${d.t})`);}});
+  if(!anyPos) L.push("  (немає даних — зріз почав збиратись з цієї версії тренажера)");
+  L.push("","ПОМИЛКИ (рука / позиція / правильна дія / разів):");
+  const byHand={};
+  log.forEach(e=>{const k=e.p+"|"+e.h+"|"+e.co;byHand[k]=(byHand[k]||0)+1;});
+  Object.entries(byHand).sort((a,b)=>b[1]-a[1]).slice(0,25).forEach(([k,n])=>{
+    const [p,h,co]=k.split("|");L.push(`  ${h} / ${p} / ${actName(co,rvScen)} / ${n}x`);});
+  if(DB.post.total){
+    L.push("","ЗВІТ · ПОСТФЛОП:",`Спотів: ${DB.post.total} · точність: ${Math.round(DB.post.correct/DB.post.total*100)}%`);
+    ["DRY","WET","PAIRED"].forEach(t=>{const d=DB.post.byTex[t];
+      if(d&&d.t)L.push(`  дошка ${TEX_LABEL[t]}: ${Math.round(d.c/d.t*100)}% (${d.t})`);});
+    ["HU·IP","HU·OOP","MULTI·IP","MULTI·OOP"].forEach(m=>{const d=DB.post.byMode[m];
+      if(d&&d.t)L.push(`  ${m}: ${Math.round(d.c/d.t*100)}% (${d.t})`);});
+  }
+  return L.join("\n");
+}
+
+/* ══════════════════════ ЕТАП 2 : ПОСТФЛОП ══════════════════════ */
+function hasStraight(rset){
+  const s=new Set(rset); if(s.has(14)) s.add(1);
+  for(let lo=1;lo<=10;lo++){let ok=true;for(let k=0;k<5;k++)if(!s.has(lo+k)){ok=false;break;}if(ok)return lo;}
+  return 0;
+}
+function straightDraw(all,holeVals){
+  const rset=all.map(c=>c.v); let outs=0;
+  for(let r=2;r<=14;r++){
+    if(rset.includes(r)) continue;
+    const lo=hasStraight(rset.concat([r])); if(!lo) continue;
+    const win=[];for(let k=0;k<5;k++)win.push(lo+k);
+    const hv=holeVals.map(v=>v===14?[14,1]:[v]).flat();
+    if(hv.some(v=>win.includes(v))) outs++;
+  }
+  return outs>=2?"oesd":(outs===1?"gutshot":null);
+}
+function evaluate(hole,board){
+  const all=hole.concat(board);
+  const bv=board.map(c=>c.v).sort((a,b)=>b-a), hv=hole.map(c=>c.v).sort((a,b)=>b-a);
+  const cnt={}; all.forEach(c=>cnt[c.v]=(cnt[c.v]||0)+1);
+  const suitCnt={}; all.forEach(c=>suitCnt[c.s]=(suitCnt[c.s]||0)+1);
+  const holeSuits=hole.map(c=>c.s);
+  const flushMade=Object.keys(suitCnt).some(s=>suitCnt[s]>=5);
+  const straightMade=!!hasStraight(all.map(c=>c.v));
+  const isPocket=hv[0]===hv[1];
+  let made=null,label="";
+  if(flushMade){made="STRONG";label="флеш";}
+  else if(straightMade){made="STRONG";label="стріт";}
+  else if(isPocket&&bv.includes(hv[0])){made="STRONG";label="сет";}
+  else if(!isPocket&&(cnt[hv[0]]===3||cnt[hv[1]]===3)){made="STRONG";label="трипс";}
+  else if(!isPocket&&bv.includes(hv[0])&&bv.includes(hv[1])){made="STRONG";label="дві пари";}
+  else if(isPocket){
+    if(hv[0]>bv[0]){made="STRONG";label="оверпара";}
+    else if(hv[0]>bv[1]){made="MEDIUM";label="середня кишенькова пара";}
+    else{made="WEAK";label="андерпара";}
+  } else {
+    const m=bv.includes(hv[0])?hv[0]:(bv.includes(hv[1])?hv[1]:null);
+    if(m===null){made=null;label="без пари";}
+    else{
+      const kicker=(m===hv[0])?hv[1]:hv[0];
+      if(m===bv[0]){ if(kicker>=10){made="STRONG";label="топ-пара, сильний кікер";}
+                     else{made="MEDIUM";label="топ-пара, слабкий кікер";} }
+      else if(m===bv[1]){made="MEDIUM";label="друга пара";}
+      else{made="WEAK";label="третя пара";}
+    }
+  }
+  const fd=Object.keys(suitCnt).find(s=>suitCnt[s]===4&&holeSuits.includes(+s));
+  const bd=Object.keys(suitCnt).find(s=>suitCnt[s]===3&&holeSuits.includes(+s));
+  const sd=straightDraw(all,hv);
+  const over=!made&&hv[0]>bv[0]&&hv[1]>bv[0];
+  const dl=[];
+  if(fd&&!flushMade) dl.push("флеш-дро");
+  if(sd==="oesd") dl.push("двосторонній стріт-дро");
+  if(sd==="gutshot") dl.push("гатшот");
+  if(!fd&&bd&&!dl.length) dl.push("беквдор-флеш");
+  let cat;
+  if(made==="STRONG") cat="STRONG";
+  else if((fd&&!flushMade)||sd==="oesd") cat=made==="MEDIUM"?"STRONG":"DRAW";
+  else if(made==="MEDIUM") cat="MEDIUM";
+  else if(made==="WEAK") cat="WEAK";
+  else if(sd==="gutshot"||over) cat="WEAKDRAW";
+  else cat="AIR";
+  let full=label;
+  if(dl.length) full=(made?label+" + ":"")+dl.join(" + ");
+  if(!made&&!dl.length) full=over?"дві оверкарти":"нічого";
+  return {cat,label:full};
+}
+function texture(board){
+  const v=board.map(c=>c.v).sort((a,b)=>b-a);
+  if(v[0]===v[1]||v[1]===v[2]) return {t:"PAIRED",label:"спарена"};
+  const su={}; board.forEach(c=>su[c.s]=(su[c.s]||0)+1);
+  const mx=Math.max(...Object.values(su));
+  let sc=0;
+  if(mx===3) sc+=2; else if(mx===2) sc+=1;
+  if(v[0]-v[1]<=2||v[1]-v[2]<=2) sc+=1;
+  if(v[0]-v[2]<=4) sc+=1;
+  return sc>=2?{t:"WET",label:"мокра"}:{t:"DRY",label:"суха"};
+}
+function decide(cat,tex,nOpp,ip){
+  if(nOpp>=2){
+    if(cat==="STRONG") return "b66";
+    if(cat==="DRAW") return ip?"b66":"check";
+    return "check";
+  }
+  if(cat==="STRONG"||cat==="DRAW") return tex==="WET"?"b66":"b33";
+  if(cat==="MEDIUM") return tex==="WET"?"check":"b33";
+  if(cat==="WEAK") return "check";
+  if(tex==="WET") return "check";
+  return ip?"b33":"check";
+}
+const PF_CAT={STRONG:"Сильна рука",MEDIUM:"Середня рука",WEAK:"Слабка пара",
+  DRAW:"Сильне дро",WEAKDRAW:"Слабке дро / оверкарти",AIR:"Порожньо"};
+const TEX_LABEL={DRY:"суха",WET:"мокра",PAIRED:"спарена"};
+const PF_ACT={b33:"ставка 33%",b66:"ставка 66%",check:"чек"};
+function pfExplain(cat,tex,nOpp,ip){
+  if(nOpp>=2){
+    if(cat==="STRONG") return "Мультипот. Ставиш виключно валью і великим сайзом: троє опонентів дадуть колл достатньо часто, а дешева ставка просто пускає всіх на дешеві дро.";
+    if(cat==="DRAW") return ip
+      ?"У позиції з сильним дро у мультипоті ставка виправдана: достатньо еквіті, а позиція дозволяє контролювати банк далі."
+      :"Сильне дро поза позицією в мультипоті — чек. Немає ні фолд-еквіті проти трьох, ні контролю над банком.";
+    return "Головне правило мультипоту: не блефувати. Коли на флопі троє і більше, хтось майже завжди має пару чи дро — твій блеф не має адресата.";
+  }
+  if(cat==="STRONG") return tex==="WET"
+    ?"Сильна рука на мокрій дошці — великий сайз. Ти не просто збираєш валью, а змушуєш дро платити неправильну ціну."
+    :"Сильна рука на сухій дошці — маленький сайз. Опонент рідко має чим платити багато, а дрібна ставка тримає його слабкі руки в грі.";
+  if(cat==="DRAW") return tex==="WET"
+    ?"Напівблеф з сильним дро працює двома способами: опонент фолдить зараз або платить, коли ти влучаєш."
+    :"З сильним дро на сухій дошці вистачить маленької ставки: фолд-еквіті і так високе.";
+  if(cat==="MEDIUM") return tex==="WET"
+    ?"Середня рука на мокрій дошці — чек. Ставлячи, ти виганяєш усе гірше і платиш усьому кращому."
+    :"Середня рука на сухій дошці витримує одну маленьку ставку: гірші руки платять, дошка небезпечно не розвивається.";
+  if(cat==="WEAK") return "Слабка пара має шоудаун-валью, але ставкою ти його вбиваєш. Чекай і дійди до шоудауну дешево.";
+  if(tex==="WET") return "Порожня рука на мокрій дошці — чек. Така текстура влучає в калл-діапазон опонента частіше, ніж у твій.";
+  return ip
+    ?"Порожньо, але дошка суха і ти в позиції — маленька ставка забирає банк достатньо часто, щоб бути плюсовою. Це основний двигун c-bet стратегії."
+    :"Порожньо і поза позицією — чек. Без позиції блеф доводиться продовжувати наосліп на терні, і саме там губляться гроші.";
+}
+let pfStreak=0,pfQ=null,pfAnswered=false;
+function handToCards(h,deck){
+  const want=[h[0],h[1]],suited=h.length===3&&h[2]==="s";
+  const c1=pick(deck.filter(c=>c.rk===want[0]));
+  if(!c1) return null;
+  let pool=deck.filter(c=>c.rk===want[1]&&c!==c1);
+  pool=suited?pool.filter(c=>c.s===c1.s):pool.filter(c=>c.s!==c1.s);
+  const c2=pick(pool);
+  return c1&&c2?[c1,c2]:null;
+}
+function pfBuildSpot(){
+  for(let attempt=0;attempt<50;attempt++){
+    const heroPos=pick(OPEN_ORDER.concat(["SB"]));
+    const hi=ACTION_ORDER.indexOf(heroPos), after=ACTION_ORDER.slice(hi+1);
+    const n=Math.random()<0.5?1:(Math.random()<0.72?2:3);
+    const callers=[],pool=[...after];
+    for(let k=0;k<Math.min(n,pool.length);k++)
+      callers.push(pool.splice(Math.floor(Math.random()*pool.length),1)[0]);
+    const heroIdx=POSTFLOP_ORDER.indexOf(heroPos);
+    const ip=callers.every(c=>POSTFLOP_ORDER.indexOf(c)<heroIdx);
+    let deck=[];
+    RANKS.forEach(rk=>SUITS.forEach((s,si)=>deck.push({rk,v:VAL[rk],s:si,g:s.g,red:s.red})));
+    const range=[...RFI[heroPos]];
+    const hand=pick(range.flatMap(h=>Array(combos(h)/2).fill(h)));
+    const hole=handToCards(hand,deck);
+    if(!hole) continue;
+    deck=deck.filter(c=>!hole.includes(c));
+    const board=[];
+    for(let k=0;k<3;k++){const c=pick(deck);board.push(c);deck=deck.filter(x=>x!==c);}
+    const ev=evaluate(hole,board), tx=texture(board);
+    const correct=decide(ev.cat,tx.t,callers.length,ip);
+    const pot=Math.round((3*(1+callers.length)+((callers.includes("SB")||callers.includes("BB"))?0.5:1.5))*2)/2;
+    return {heroPos,callers,ip,hole,board,ev,tx,correct,pot,hand};
+  }
+  return null;
+}
+function pfRender(){
+  pfQ=pfBuildSpot(); pfAnswered=false;
+  if(!pfQ) return;
+  document.getElementById("pf-pos").textContent=pfQ.heroPos;
+  document.getElementById("pf-rel").textContent=pfQ.ip?"у позиції":"поза позицією";
+  document.getElementById("pf-opp").textContent=pfQ.callers.length+" ("+pfQ.callers.join(", ")+")";
+  document.getElementById("pf-pot").textContent=pfQ.pot+" bb";
+  document.getElementById("pf-flop").innerHTML=pfQ.board.map(c=>cardHTML(c,false)).join("");
+  document.getElementById("pf-hole").innerHTML=pfQ.hole.map(c=>cardHTML(c,true)).join("");
+  document.getElementById("pf-prompt").textContent=
+    `Ти відкрив з ${pfQ.heroPos}, колл — ${pfQ.callers.join(", ")}. Флоп, усі чекнули до тебе.`;
+  const b33=Math.round(pfQ.pot*0.33*2)/2,b66=Math.round(pfQ.pot*0.66*2)/2;
+  const acts=document.getElementById("pf-acts");
+  acts.innerHTML=`
+    <button class="act-btn ghost" data-k="check">Чек<small>клавіша 1</small></button>
+    <button class="act-btn soft" data-k="b33">Ставка 33%<small>${b33} bb · клавіша 2</small></button>
+    <button class="act-btn primary" data-k="b66">Ставка 66%<small>${b66} bb · клавіша 3</small></button>`;
+  acts.querySelectorAll("button").forEach(b=>b.onclick=()=>pfAnswer(b.dataset.k));
+  acts.classList.remove("hidden");
+  document.getElementById("pf-verdict").innerHTML="";
+}
+function pfAnswer(k){
+  if(pfAnswered) return; pfAnswered=true;
+  const A=DB.post, ok=k===pfQ.correct;
+  A.total++; if(ok) A.correct++;
+  const bump=(o,key)=>{const d=o[key]||{t:0,c:0};d.t++;if(ok)d.c++;o[key]=d;};
+  bump(A.byCat,pfQ.ev.cat); bump(A.byTex,pfQ.tx.t);
+  bump(A.byMode,(pfQ.callers.length>=2?"MULTI":"HU")+"·"+(pfQ.ip?"IP":"OOP"));
+  if(!ok){ A.log.push({cat:pfQ.ev.cat,tex:pfQ.tx.t,n:pfQ.callers.length,ip:pfQ.ip?1:0,ch:k,co:pfQ.correct});
+    if(A.log.length>500) A.log.splice(0,A.log.length-500); }
+  pfStreak=ok?pfStreak+1:0; A.best=Math.max(A.best,pfStreak);
+  save(); pfRenderStats(); renderStageBar();
+  document.getElementById("pf-acts").classList.add("hidden");
+  const v=document.getElementById("pf-verdict");
+  v.className="verdict "+(ok?"ok":"no");
+  v.innerHTML=`<h3>${ok?"Правильно":"Помилка"}</h3>
+    <div class="tags"><span class="tag hand">${pfQ.ev.label}</span>
+      <span class="tag">${PF_CAT[pfQ.ev.cat]}</span>
+      <span class="tag">дошка ${pfQ.tx.label}</span>
+      <span class="tag">${pfQ.callers.length>=2?"мультипот":"хедз-ап"} · ${pfQ.ip?"IP":"OOP"}</span></div>
+    <p>Правильно тут — <strong>${PF_ACT[pfQ.correct]}</strong>. ${pfExplain(pfQ.ev.cat,pfQ.tx.t,pfQ.callers.length,pfQ.ip)}</p>
+    <button class="next" id="pf-next">Далі · пробіл</button>`;
+  document.getElementById("pf-next").onclick=pfRender;
+}
+function pfRenderStats(){
+  const A=DB.post,acc=A.total?Math.round(A.correct/A.total*100):0;
+  document.getElementById("pf-s-streak").textContent=pfStreak;
+  document.getElementById("pf-s-acc").textContent=acc+"%";
+  document.getElementById("pf-s-total").textContent=A.total;
+  document.getElementById("pf-s-best").textContent=A.best;
+}
+const MATRIX=[
+  ["Сильна рука","суха","33%","Тримай слабкі руки в грі"],
+  ["Сильна рука","мокра","66%","Змусь дро платити неправильну ціну"],
+  ["Сильна рука","мультипот","66%","Валью проти кількох калл-діапазонів"],
+  ["Сильне дро","суха","33%","Дешеве фолд-еквіті"],
+  ["Сильне дро","мокра","66%","Напівблеф: працює і фолдом, і влученням"],
+  ["Сильне дро","мультипот IP","66%","Еквіті плюс контроль банку"],
+  ["Сильне дро","мультипот OOP","чек","Ні фолд-еквіті, ні контролю"],
+  ["Середня рука","суха","33%","Гірші руки платять, дошка безпечна"],
+  ["Середня рука","мокра","чек","Виганяєш гірше, платиш кращому"],
+  ["Слабка пара","будь-яка","чек","Зберігай шоудаун-валью"],
+  ["Порожньо","суха IP","33%","Основний двигун c-bet стратегії"],
+  ["Порожньо","суха OOP","чек","Блеф без позиції продовжується наосліп"],
+  ["Порожньо","мокра","чек","Текстура влучає в опонента частіше"],
+  ["Порожньо","мультипот","чек","Ніколи не блефуй проти двох і більше"]
+];
+function pfRenderRules(){
+  document.getElementById("pf-rules-body").innerHTML=`
+    <h4>Схема рішень на флопі</h4>
+    <table><thead><tr><th>Твоя рука</th><th>Ситуація</th><th>Дія</th><th>Чому</th></tr></thead><tbody>
+    ${MATRIX.map(r=>`<tr><td>${r[0]}</td><td class="c">${r[1]}</td><td class="b">${r[2]}</td><td class="m">${r[3]}</td></tr>`).join("")}
+    </tbody></table>
+    <h4>Як читається рука</h4>
+    <table><tbody>
+      <tr><td>Сильна</td><td class="m">Сет, дві пари, стріт, флеш, оверпара, топ-пара з кікером T і вище</td></tr>
+      <tr><td>Середня</td><td class="m">Топ-пара зі слабким кікером, друга пара, середня кишенькова пара</td></tr>
+      <tr><td>Слабка</td><td class="m">Третя пара, андерпара</td></tr>
+      <tr><td>Сильне дро</td><td class="m">Флеш-дро або двосторонній стріт-дро (8+ аутів)</td></tr>
+      <tr><td>Слабке дро</td><td class="m">Гатшот, дві оверкарти, беквдор</td></tr>
+    </tbody></table>
+    <h4>Як читається дошка</h4>
+    <table><tbody>
+      <tr><td>Суха</td><td class="m">Різномасна, розірвана: K♠7♦2♣. Рідко влучає в калл-діапазон</td></tr>
+      <tr><td>Мокра</td><td class="m">Дві-три однієї масті або зв'язана: 9♥8♥5♦. Багато дро</td></tr>
+      <tr><td>Спарена</td><td class="m">K♠K♦4♣. Опонент рідко має трипс — високе фолд-еквіті</td></tr>
+    </tbody></table>
+    <p class="note"><strong>Межі цієї схеми.</strong> Це спрощена експлуатаційна модель під лузове
+    мікро-поле, а не солверна стратегія. Вона свідомо жорстка: без змішаних частот і балансу.
+    На 5/10 у клубах це працює краще за спроби грати «правильно», бо опоненти не карають за
+    передбачуваність. На вищих лімітах схему доведеться перебудовувати — і це нормально.</p>
+    <p class="note">Тренажер не враховує образ конкретного опонента, ефективний стек та історію
+    роздач. Коли базова схема стане автоматичною — саме ці фактори будуть наступним рівнем.</p>`;
+}
+const PF_FIX={
+  bluffMulti:["Блефи в мультипоті","Ти ставиш без руки, коли на флопі двоє й більше опонентів. Це найдорожча постфлоп-помилка на мікролімітах: проти кількох калл-діапазонів хтось майже завжди має пару або дро. Правило без винятків: у мультипоті ставиш тільки валью."],
+  bluffWet:["Блефи на мокрих дошках","Ти c-betиш порожні руки там, де текстура влучає в опонента частіше, ніж у тебе. Зв'язані дошки дають опоненту купу причин не фолдити."],
+  bluffOOP:["Блефи поза позицією","Проблема не в самій ставці, а в тому, що далі: на терні ти діятимеш першим і наосліп, і саме там ці роздачі стають великими програшами."],
+  missValue:["Пропущене валью","Ти чекаєш із сильними руками. На лузовому полі це прямі втрати: опоненти платять значно частіше, ніж здається. Сильна рука на флопі майже завжди ставиться."],
+  sizeSmall:["Замалий сайз на мокрій дошці","Ти ставиш 33% там, де потрібно 66%. На дошці з дро дешева ставка дає опоненту правильну ціну догнати тебе."],
+  sizeBig:["Завеликий сайз на сухій дошці","Ти ставиш 66% там, де вистачає 33%. На сухій текстурі ти або забираєш той самий банк дешевше, або лякаєш гірші руки."],
+  thinBet:["Ставки середніми руками на мокрій дошці","Ти ставиш там, де рука не витримує тиску: виганяєш усе гірше і платиш усьому кращому."],
+  weakBet:["Ставки слабкими парами","Ти ставиш третьою парою або андерпарою. Ці руки мають шоудаун-валью — але тільки якщо доходиш до шоудауну дешево."]
+};
+function pfClassify(e){
+  const bet=k=>k==="b33"||k==="b66";
+  if(bet(e.ch)&&e.co==="check"){
+    if(e.n>=2) return "bluffMulti";
+    if(e.cat==="AIR"||e.cat==="WEAKDRAW") return e.tex==="WET"?"bluffWet":"bluffOOP";
+    if(e.cat==="MEDIUM") return "thinBet";
+    if(e.cat==="WEAK") return "weakBet";
+    return "bluffWet";
+  }
+  if(e.ch==="check"&&bet(e.co)) return "missValue";
+  if(e.ch==="b33"&&e.co==="b66") return "sizeSmall";
+  if(e.ch==="b66"&&e.co==="b33") return "sizeBig";
+  return "missValue";
+}
+function pfRenderReview(){
+  const A=DB.post,body=document.getElementById("pf-review-body");
+  if(!A.total){ body.innerHTML=`<div class="empty">Порожньо. Зіграй 50–70 спотів у «Тренуванні».</div>`; return; }
+  const acc=Math.round(A.correct/A.total*100),log=A.log||[];
+  const agg={}; log.forEach(e=>{const k=pfClassify(e);agg[k]=(agg[k]||0)+1;});
+  const findings=Object.entries(agg).sort((a,b)=>b[1]-a[1]).slice(0,3);
+  const cell=(n,d)=>{const p=d&&d.t?Math.round(d.c/d.t*100):null;
+    const cls=p!==null&&d.t>=10?(p<80?" warn":" good"):"";
+    return `<div class="pp${cls}"><b>${n}</b><span>${p===null?"—":p+"% · "+d.t}</span></div>`;};
+  body.innerHTML=`
+    <div class="strip"><div class="sc"><b>${A.total}</b><span>спотів</span></div>
+      <div class="sc"><b>${acc}%</b><span>точність</span></div>
+      <div class="sc"><b>${log.length}</b><span>помилок</span></div>
+      <div class="sc"><b>${A.best}</b><span>рекорд</span></div></div>
+    <h4>Головні патерни</h4>
+    ${findings.length?findings.map(([k,n])=>`<div class="finding"><b>${PF_FIX[k][0]} · ${n}×</b><span>${PF_FIX[k][1]}</span></div>`).join("")
+      :`<div class="empty">Стійких патернів поки не видно.</div>`}
+    <h4>За типом руки</h4>
+    <div class="perpos">${Object.keys(PF_CAT).map(c=>cell(PF_CAT[c],A.byCat[c])).join("")}</div>
+    <h4>За текстурою дошки</h4>
+    <div class="perpos">${["DRY","WET","PAIRED"].map(t=>cell(TEX_LABEL[t],A.byTex[t])).join("")}</div>
+    <h4>За типом споту</h4>
+    <div class="perpos">${["HU·IP","HU·OOP","MULTI·IP","MULTI·OOP"].map(m=>cell(m,A.byMode[m])).join("")}</div>
+    <p class="note">Мультипот і мокрі дошки майже завжди просідають першими — і саме вони
+    коштують найдорожче за реальним столом.</p>
+    <div class="foot"><span>Прогрес зберігається в цьому браузері</span>
+      <button class="link" id="pf-reset">Скинути прогрес постфлопу</button></div>`;
+  document.getElementById("pf-reset").onclick=()=>{
+    const unl=DB.post.unlocked;
+    DB.post=JSON.parse(JSON.stringify(EMPTY.post)); DB.post.unlocked=unl;
+    pfStreak=0; save(); pfRenderStats(); pfRenderReview(); renderStageBar(); pfRender();
+  };
+}
+
+/* ══════════════════════ НАВІГАЦІЯ ══════════════════════ */
+let stage="pre";
+function showStage(s){
+  if(s==="post"&&!DB.post.unlocked){ renderLock();
+    document.getElementById("post-lock").classList.remove("hidden");
+    document.getElementById("post-app").classList.add("hidden");
+  } else if(s==="post"){
+    document.getElementById("post-lock").classList.add("hidden");
+    document.getElementById("post-app").classList.remove("hidden");
+    if(!pfQ) pfRender();
+  }
+  stage=s;
+  document.getElementById("stg-pre").classList.toggle("on",s==="pre");
+  document.getElementById("stg-post").classList.toggle("on",s==="post");
+  document.getElementById("stage-pre").classList.toggle("hidden",s!=="pre");
+  document.getElementById("stage-post").classList.toggle("hidden",s!=="post");
+}
+document.getElementById("stg-pre").onclick=()=>showStage("pre");
+document.getElementById("stg-post").onclick=()=>showStage("post");
+
+function wireTabs(barId,prefix,onShow){
+  const bar=document.getElementById(barId);
+  bar.querySelectorAll(".tab").forEach(t=>t.onclick=()=>{
+    bar.querySelectorAll(".tab").forEach(x=>x.classList.remove("on"));
+    t.classList.add("on");
+    bar.parentElement.querySelectorAll(`section[id^="${prefix}-"]`).forEach(sec=>
+      sec.classList.toggle("hidden",sec.id!==prefix+"-"+t.dataset.tab));
+    onShow(t.dataset.tab);
+  });
+}
+wireTabs("pre-tabs","pre",tab=>{
+  if(tab==="ranges") renderRangesTab();
+  if(tab==="stats") preRenderStatsTab();
+  if(tab==="review") renderReview();
+});
+wireTabs("post-tabs","post",tab=>{
+  if(tab==="rules") pfRenderRules();
+  if(tab==="review") pfRenderReview();
+});
+
+document.getElementById("rv-copy").onclick=()=>{
+  const txt=buildReport(),hint=document.getElementById("rv-copy-hint");
+  const done=()=>{hint.textContent="Скопійовано — можна вставляти на розбір";
+    setTimeout(()=>{hint.textContent="Звіт можна скопіювати і принести на розбір";},2600);};
+  if(navigator.clipboard&&navigator.clipboard.writeText)
+    navigator.clipboard.writeText(txt).then(done,()=>fallbackCopy(txt,done));
+  else fallbackCopy(txt,done);
+};
+function fallbackCopy(txt,cb){
+  const ta=document.createElement("textarea");
+  ta.value=txt; ta.style.position="fixed"; ta.style.opacity="0";
+  document.body.appendChild(ta); ta.select();
+  try{document.execCommand("copy");cb();}catch(e){alert(txt);}
+  document.body.removeChild(ta);
+}
+function renderScenarioChips(){
+  const el=document.getElementById("pre-scenarios");
+  el.innerHTML=Object.keys(SCENARIOS).map(k=>
+    `<button class="chip ${activeScenarios.has(k)?"on":""}" data-k="${k}"
+      ${drillOn?"disabled style=opacity:.4":""}>${SCENARIOS[k].label}</button>`).join("");
+  el.querySelectorAll("button").forEach(b=>b.onclick=()=>{
+    if(drillOn) return;
+    const k=b.dataset.k;
+    if(activeScenarios.has(k)){ if(activeScenarios.size>1) activeScenarios.delete(k); }
+    else activeScenarios.add(k);
+    renderScenarioChips(); preRender();
+  });
+  renderDrillBar();
+}
+document.addEventListener("keydown",e=>{
+  const inPre=stage==="pre"&&!document.getElementById("pre-train").classList.contains("hidden");
+  const inPost=stage==="post"&&DB.post.unlocked&&!document.getElementById("post-train").classList.contains("hidden");
+  if(inPre){
+    if(preAnswered&&(e.key===" "||e.key==="Enter")){e.preventDefault();preRender();return;}
+    if(!preAnswered&&["1","2","3"].includes(e.key)){
+      const b=document.querySelectorAll("#pre-acts button")[+e.key-1]; if(b) b.click(); }
+  } else if(inPost){
+    if(pfAnswered&&(e.key===" "||e.key==="Enter")){e.preventDefault();pfRender();return;}
+    if(!pfAnswered&&["1","2","3"].includes(e.key)){
+      const b=document.querySelectorAll("#pf-acts button")[+e.key-1]; if(b) b.click(); }
+  }
+});
+
+renderScenarioChips();
+preRender();
+preRenderStats();
+renderStageBar();
+renderLock();
+if(DB.post.unlocked&&!DB.post.seen){ DB.post.seen=true; save(); preShowBanner(); }
+</script>
+</body>
+</html>

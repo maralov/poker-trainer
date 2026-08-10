@@ -1,0 +1,31 @@
+# Секрети
+.env
+.env.local
+.env.*.local
+
+# Python / uv
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Node
+node_modules/
+dist/
+dist-ssr/
+*.local
+.vite/
+
+# Логи
+logs/
+*.log
+npm-debug.log*
+
+# ОС / редактори
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp
