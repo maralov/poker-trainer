@@ -1,6 +1,7 @@
 """Конфіг застосунку. Усе — з env, жодних секретів у коді."""
 
 from functools import lru_cache
+from typing import Literal
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -18,7 +19,8 @@ class Settings(BaseSettings):
     cookie_name: str = "pt_access"
     cookie_domain: str | None = None
     cookie_secure: bool = False
-    cookie_samesite: str = "lax"
+    # none вимагає secure=True — крос-доменний варіант для Vercel + Railway
+    cookie_samesite: Literal["lax", "strict", "none"] = "lax"
 
     # Кома-розділений список у env: CORS_ORIGINS=http://localhost:5173,https://app.example.com
     cors_origins: str = "http://localhost:5173"
