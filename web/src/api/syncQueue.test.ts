@@ -84,10 +84,21 @@ describe('накопичення', () => {
 
   it('не росте безмежно: найстаріші події витісняються', () => {
     const { db } = fakeDb()
+    // Черга наповнюється одним записом, а не 5000 викликами enqueue:
+    // enqueue перечитує і перезаписує все сховище щоразу, тож розгін до межі
+    // коштував би O(n²) і робив тест повільним без користі. Перевіряємо межу.
+    const full = Array.from({ length: QUEUE_LIMIT }, (_, i) => attempt(`e${i}`))
+    storage.setItem(QUEUE_KEY, JSON.stringify(full))
+
     const q = new SyncQueue({ db, storage, isAuthenticated: () => true })
-    for (let i = 0; i < QUEUE_LIMIT + 5; i++) q.enqueue(attempt(`e${i}`))
     expect(q.size).toBe(QUEUE_LIMIT)
-    expect(q.peek()[0]?.client_id).toBe('e5')
+
+    for (let i = 0; i < 5; i++) q.enqueue(attempt(`new${i}`))
+
+    expect(q.size, 'розмір не перевищує межу').toBe(QUEUE_LIMIT)
+    const ids = q.peek().map((a) => a.client_id)
+    expect(ids[0], 'найстаріші витіснені').toBe('e5')
+    expect(ids.slice(-5), 'нові на місці').toEqual(['new0', 'new1', 'new2', 'new3', 'new4'])
   })
 
   it('пошкоджене сховище не ронить чергу', () => {

@@ -5,11 +5,12 @@
 
 import { DRILL, canDrill, drillPool, drillStats } from '../engine/drill'
 import { SCENARIOS } from '../engine/ranges'
-import { useProgressStore } from '../store/progressStore'
 import { useSessionStore } from '../store/sessionStore'
+import { useStatsSource } from '../store/statsSource'
 
 export function DrillBar() {
-  const pre = useProgressStore((s) => s.pre)
+  // Пул «ліків» має враховувати помилки з усіх пристроїв, а не лише з цього.
+  const pre = useStatsSource().progress
   const drillScen = useSessionStore((s) => s.drillScen)
   const activeScenarios = useSessionStore((s) => s.activeScenarios)
   const startDrill = useSessionStore((s) => s.startDrill)

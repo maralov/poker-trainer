@@ -6,13 +6,14 @@
  * показуємо локальні: цифри мають бути завжди, навіть неповні.
  */
 
-import { useEffect } from 'react'
+import { useEffect, useMemo } from 'react'
 import { create } from 'zustand'
 
 import { fetchServerProgress } from '../api/serverProgress'
-import { useSyncStore } from '../api/sync'
+import { queue, useSyncStore } from '../api/sync'
 import type { PreProgress } from '../engine/progress'
 import { useAuthStore } from './authStore'
+import { mergeProgress } from './mergeProgress'
 import { useProgressStore } from './progressStore'
 
 interface ServerStatsState {
@@ -58,6 +59,17 @@ export interface StatsSource {
 }
 
 /**
+ * Те саме зведення, але поза React — для сторів, які не можуть викликати хук.
+ * Використовує drill-пул і мапу помилок при побудові спотів, щоб тренування
+ * враховувало історію з усіх пристроїв, а не лише з цього браузера.
+ */
+export function getStatsProgress(): PreProgress {
+  const local = useProgressStore.getState().pre
+  const server = useServerStats.getState().progress
+  return server ? mergeProgress(server, local.drill, queue.peek()) : local
+}
+
+/**
  * Прогрес для показу + чесна ознака, звідки він і наскільки свіжий.
  * Оновлюється при логіні та після кожного успішного синку.
  */
@@ -70,6 +82,7 @@ export function useStatsSource(): StatsSource {
   const refresh = useServerStats((s) => s.refresh)
   const reset = useServerStats((s) => s.reset)
   const pending = useSyncStore((s) => s.pending)
+  const queued = useSyncStore((s) => s.queued)
   const lastSyncedAt = useSyncStore((s) => s.lastSyncedAt)
 
   useEffect(() => {
@@ -82,8 +95,15 @@ export function useStatsSource(): StatsSource {
     if (session && lastSyncedAt) void refresh()
   }, [session, lastSyncedAt, refresh])
 
+  // Серверні цифри плюс те, що ще в черзі: інакше лічильник після відповіді
+  // не рухався б до наступного синку.
+  const progress = useMemo(
+    () => (server ? mergeProgress(server, local.drill, queued) : local),
+    [server, local, queued],
+  )
+
   return {
-    progress: server ?? local,
+    progress,
     fromServer: server !== null,
     pending,
     loading,

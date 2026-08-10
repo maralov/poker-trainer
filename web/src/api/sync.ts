@@ -21,6 +21,12 @@ export const queue = new SyncQueue({
 
 export interface SyncState {
   pending: number
+  /**
+   * Знімок черги. Тримається в сторі, а не читається з localStorage на місці,
+   * щоб React бачив зміни: інакше довелося б підв'язуватись до лічильника
+   * pending і сподіватись, що він змінюється разом із вмістом.
+   */
+  queued: QueuedAttempt[]
   /** Час останнього успішного синку, ms. */
   lastSyncedAt: number | null
   error: string | null
@@ -29,6 +35,7 @@ export interface SyncState {
 
 export const useSyncStore = create<SyncState>()(() => ({
   pending: queue.size,
+  queued: queue.peek(),
   lastSyncedAt: null,
   error: null,
   syncing: false,
@@ -41,6 +48,7 @@ async function run(force = false): Promise<void> {
     const r = await queue.flush(force)
     useSyncStore.setState({
       pending: r.pending,
+      queued: queue.peek(),
       syncing: false,
       error: r.status === 'error' ? (r.error ?? 'помилка синку') : null,
       ...(r.status === 'ok' ? { lastSyncedAt: Date.now() } : {}),
@@ -56,7 +64,7 @@ async function run(force = false): Promise<void> {
 /** Кладе спробу в чергу і, якщо накопичилось достатньо, одразу шле. */
 export function recordAttempt(attempt: QueuedAttempt): void {
   const shouldFlush = queue.enqueue(attempt)
-  useSyncStore.setState({ pending: queue.size })
+  useSyncStore.setState({ pending: queue.size, queued: queue.peek() })
   if (shouldFlush) void run()
 }
 

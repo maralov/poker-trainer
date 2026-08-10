@@ -10,11 +10,12 @@ import { SCENARIOS } from '../engine/ranges'
 import { SCENARIO_KEYS, type Scenario } from '../engine/types'
 import { useProgressStore } from '../store/progressStore'
 import { useSessionStore } from '../store/sessionStore'
+import { useStatsSource } from '../store/statsSource'
 
 const SCENARIO_ITEMS = SCENARIO_KEYS.map((k) => ({ key: k, label: SCENARIOS[k].label }))
 
 export function Train() {
-  const pre = useProgressStore((s) => s.pre)
+  const pre = useStatsSource().progress
   const postSeen = useProgressStore((s) => s.postSeen)
   const postUnlocked = useProgressStore((s) => s.postUnlocked)
   const markPostSeen = useProgressStore((s) => s.markPostSeen)

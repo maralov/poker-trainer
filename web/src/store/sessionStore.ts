@@ -11,6 +11,7 @@ import { drillSpot } from '../engine/drill'
 import { buildSpot } from '../engine/spots'
 import type { Action, Scenario, Spot } from '../engine/types'
 import { useProgressStore } from './progressStore'
+import { getStatsProgress } from './statsSource'
 
 export interface AnswerFeedback {
   readonly ok: boolean
@@ -47,7 +48,7 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
 
   next: () => {
     const { drillScen, activeScenarios } = get()
-    const pre = useProgressStore.getState().pre
+    const pre = getStatsProgress()
 
     if (drillScen) {
       const spot = drillSpot(pre, drillScen)

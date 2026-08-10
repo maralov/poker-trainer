@@ -9,6 +9,7 @@ import { Review } from './pages/Review'
 import { Stats } from './pages/Stats'
 import { Train } from './pages/Train'
 import { useProgressStore } from './store/progressStore'
+import { useStatsSource } from './store/statsSource'
 
 type Stage = 'pre' | 'post'
 type Tab = 'train' | 'ranges' | 'stats' | 'review'
@@ -24,7 +25,7 @@ export default function App() {
   const [stage, setStage] = useState<Stage>('pre')
   const [tab, setTab] = useState<Tab>('train')
 
-  const pre = useProgressStore((s) => s.pre)
+  const pre = useStatsSource().progress
   const postUnlocked = useProgressStore((s) => s.postUnlocked)
   const legacyImported = useProgressStore((s) => s.legacyImported)
   const dismissLegacyNotice = useProgressStore((s) => s.dismissLegacyNotice)

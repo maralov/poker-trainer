@@ -5,7 +5,7 @@
 
 import { GATE, gateStatus, type GateStatus } from '../engine/gate'
 import { SCENARIOS } from '../engine/ranges'
-import { useProgressStore } from '../store/progressStore'
+import { useStatsSource } from '../store/statsSource'
 
 function Criterion({
   done,
@@ -38,7 +38,7 @@ function Criterion({
 }
 
 export function GateLock() {
-  const pre = useProgressStore((s) => s.pre)
+  const pre = useStatsSource().progress
   const g: GateStatus = gateStatus(pre.recent, pre.total)
 
   const worstScen = [...g.scen].sort((a, b) => a.p - b.p)[0]
