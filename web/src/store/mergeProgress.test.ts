@@ -109,6 +109,49 @@ describe('mergeProgress', () => {
     expect(merged.total).toBe(11)
   })
 
+  describe('мітка скидання', () => {
+    const at = (iso: string) => queued({ answered_at: iso })
+    const RESET = Date.parse('2026-08-01T12:00:00.000Z')
+
+    it('події до мітки не рахуються — інакше скидання «не спрацювало б»', () => {
+      const merged = mergeProgress(
+        emptyPreProgress(),
+        emptyPreProgress().drill,
+        [at('2026-08-01T11:59:00.000Z'), at('2026-08-01T11:00:00.000Z')],
+        RESET,
+      )
+      expect(merged.total).toBe(0)
+    })
+
+    it('події після мітки рахуються', () => {
+      const merged = mergeProgress(
+        emptyPreProgress(),
+        emptyPreProgress().drill,
+        [at('2026-08-01T11:59:00.000Z'), at('2026-08-01T12:01:00.000Z')],
+        RESET,
+      )
+      expect(merged.total).toBe(1)
+    })
+
+    it('подія рівно в момент мітки не рахується', () => {
+      const merged = mergeProgress(
+        emptyPreProgress(),
+        emptyPreProgress().drill,
+        [at('2026-08-01T12:00:00.000Z')],
+        RESET,
+      )
+      expect(merged.total).toBe(0)
+    })
+
+    it('без мітки рахується все', () => {
+      const merged = mergeProgress(emptyPreProgress(), emptyPreProgress().drill, [
+        at('2020-01-01T00:00:00.000Z'),
+        at('2026-08-01T12:01:00.000Z'),
+      ])
+      expect(merged.total).toBe(2)
+    })
+  })
+
   it('зведений прогрес поводиться як звичайний: далі його можна доповнювати', () => {
     const merged = mergeProgress(serverProgress(10, 8), emptyPreProgress().drill, [queued()])
     recordAnswer(merged, 0, {

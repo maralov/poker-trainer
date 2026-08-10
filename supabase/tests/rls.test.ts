@@ -130,12 +130,26 @@ describe('RLS: ізоляція користувачів', () => {
     expect(after.data?.chosen).toBe('raise')
   })
 
-  it('журнал незмінний: власник не може видалити свій запис', async () => {
+  it('власник може видалити свій запис — дані належать йому', async () => {
+    // Незмінність журналу лишається в силі щодо ПЕРЕПИСУВАННЯ (див. тест вище):
+    // рядок не можна змінити заднім числом. Але стерти свої дані користувач
+    // має могти — саме на цьому тримається «Видалити весь мій прогрес».
     const { data } = await alice.client.from('attempts').insert(attempt()).select().single()
+
+    const del = await alice.client.from('attempts').delete().eq('id', data!.id).select()
+    expect(del.data).toHaveLength(1)
+
+    const gone = await alice.client.from('attempts').select('id').eq('id', data!.id)
+    expect(gone.data).toHaveLength(0)
+  })
+
+  it('видалити чужий запис не можна', async () => {
+    const { data } = await bob.client.from('attempts').insert(attempt()).select().single()
+
     const del = await alice.client.from('attempts').delete().eq('id', data!.id).select()
     expect(del.data ?? []).toHaveLength(0)
 
-    const still = await alice.client.from('attempts').select('id').eq('id', data!.id)
+    const still = await bob.client.from('attempts').select('id').eq('id', data!.id)
     expect(still.data).toHaveLength(1)
   })
 

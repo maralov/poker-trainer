@@ -4,18 +4,44 @@ import { PerPos, StatStrip } from '../components/StatStrip'
 import { GATE, gateStatus } from '../engine/gate'
 import { SCENARIOS } from '../engine/ranges'
 import { ACTION_ORDER, SCENARIO_KEYS } from '../engine/types'
-import { useProgressStore } from '../store/progressStore'
-import { useSessionStore } from '../store/sessionStore'
+import { useState } from 'react'
+
+import { deleteProgress, resetProgress } from '../store/resetProgress'
 import { useStatsSource } from '../store/statsSource'
 
 export function Stats() {
   const source = useStatsSource()
   const pre = source.progress
-  const reset = useProgressStore((s) => s.reset)
-  const resetSession = useSessionStore((s) => s.resetSession)
+  const [busy, setBusy] = useState<'reset' | 'delete' | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
 
   const acc = pre.total ? Math.round((pre.correct / pre.total) * 100) : 0
   const g = gateStatus(pre.recent, pre.total)
+
+  const run = async (kind: 'reset' | 'delete', action: () => Promise<unknown>) => {
+    setBusy(kind)
+    setActionError(null)
+    try {
+      await action()
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : 'спробуй ще раз')
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  const onReset = () => {
+    if (!window.confirm('Скинути статистику? Історія залишиться в базі — лік почнеться з нуля.'))
+      return
+    void run('reset', resetProgress)
+  }
+
+  const onDelete = () => {
+    // Друге підтвердження свідомо: цю дію відкотити неможливо.
+    if (!window.confirm('Видалити ВСІ спроби назавжди? Це неможливо скасувати.')) return
+    if (!window.confirm('Точно? Уся історія тренувань буде стерта з бази.')) return
+    void run('delete', deleteProgress)
+  }
 
   const pctOf = (d: { t: number; c: number } | undefined): number | null =>
     d && d.t ? Math.round((d.c / d.t) * 100) : null
@@ -81,17 +107,21 @@ export function Stats() {
               ? 'Дані з сервера — зведені з усіх пристроїв'
               : 'Прогрес зберігається лише в цьому браузері'}
           </span>
-          <button
-            type="button"
-            className="link"
-            onClick={() => {
-              reset()
-              resetSession()
-            }}
-          >
-            Скинути прогрес префлопу
-          </button>
+          <span style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+            <button type="button" className="link" disabled={busy !== null} onClick={onReset}>
+              {busy === 'reset' ? 'Скидаю…' : 'Скинути прогрес префлопу'}
+            </button>
+            <button type="button" className="link" disabled={busy !== null} onClick={onDelete}>
+              {busy === 'delete' ? 'Видаляю…' : 'Видалити назавжди'}
+            </button>
+          </span>
         </div>
+
+        {actionError && (
+          <p className="note">
+            <strong>Не вдалося</strong>: {actionError}
+          </p>
+        )}
       </div>
     </section>
   )

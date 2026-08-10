@@ -21,6 +21,8 @@ interface ServerStatsState {
   loading: boolean
   error: string | null
   fetchedAt: number | null
+  /** Мітка скидання, ms; null — рахується вся історія. */
+  resetAt: number | null
   refresh: () => Promise<void>
   reset: () => void
 }
@@ -30,13 +32,14 @@ export const useServerStats = create<ServerStatsState>()((set) => ({
   loading: false,
   error: null,
   fetchedAt: null,
+  resetAt: null,
 
   refresh: async () => {
     if (!useAuthStore.getState().session) return
     set({ loading: true, error: null })
     try {
-      const { progress, fetchedAt } = await fetchServerProgress()
-      set({ progress, fetchedAt, loading: false })
+      const { progress, fetchedAt, resetAt } = await fetchServerProgress()
+      set({ progress, fetchedAt, resetAt, loading: false })
     } catch (e) {
       set({
         loading: false,
@@ -45,7 +48,8 @@ export const useServerStats = create<ServerStatsState>()((set) => ({
     }
   },
 
-  reset: () => set({ progress: null, fetchedAt: null, error: null, loading: false }),
+  reset: () =>
+    set({ progress: null, fetchedAt: null, resetAt: null, error: null, loading: false }),
 }))
 
 export interface StatsSource {
@@ -65,8 +69,8 @@ export interface StatsSource {
  */
 export function getStatsProgress(): PreProgress {
   const local = useProgressStore.getState().pre
-  const server = useServerStats.getState().progress
-  return server ? mergeProgress(server, local.drill, queue.peek()) : local
+  const { progress: server, resetAt } = useServerStats.getState()
+  return server ? mergeProgress(server, local.drill, queue.peek(), resetAt) : local
 }
 
 /**
@@ -77,6 +81,7 @@ export function useStatsSource(): StatsSource {
   const local = useProgressStore((s) => s.pre)
   const session = useAuthStore((s) => s.session)
   const server = useServerStats((s) => s.progress)
+  const resetAt = useServerStats((s) => s.resetAt)
   const loading = useServerStats((s) => s.loading)
   const error = useServerStats((s) => s.error)
   const refresh = useServerStats((s) => s.refresh)
@@ -98,8 +103,8 @@ export function useStatsSource(): StatsSource {
   // Серверні цифри плюс те, що ще в черзі: інакше лічильник після відповіді
   // не рухався б до наступного синку.
   const progress = useMemo(
-    () => (server ? mergeProgress(server, local.drill, queued) : local),
-    [server, local, queued],
+    () => (server ? mergeProgress(server, local.drill, queued, resetAt) : local),
+    [server, local, queued, resetAt],
   )
 
   return {

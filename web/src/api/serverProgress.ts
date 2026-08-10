@@ -23,6 +23,11 @@ export interface ServerProgress {
   readonly progress: PreProgress
   /** Коли дані отримані, ms. */
   readonly fetchedAt: number
+  /**
+   * Мітка скидання, ms. Спроби, старіші за неї, не рахуються.
+   * null — рахується вся історія.
+   */
+  readonly resetAt: number | null
 }
 
 export async function fetchServerProgress(): Promise<ServerProgress> {
@@ -41,10 +46,12 @@ export async function fetchServerProgress(): Promise<ServerProgress> {
   const p = emptyPreProgress()
 
   const s = summary.data?.[0]
+  let resetAt: number | null = null
   if (s) {
     p.total = Number(s.total)
     p.correct = Number(s.correct)
     p.best = Number(s.best_streak)
+    resetAt = s.reset_at ? Date.parse(s.reset_at) : null
   }
 
   for (const row of totals.data ?? []) {
@@ -91,5 +98,18 @@ export async function fetchServerProgress(): Promise<ServerProgress> {
   )
   p.log.sort((a, b) => a.t - b.t)
 
-  return { progress: p, fetchedAt: Date.now() }
+  return { progress: p, fetchedAt: Date.now(), resetAt }
+}
+
+/** Ставить мітку скидання. Спроби лишаються в базі — скидання оборотне. */
+export async function resetServerProgress(): Promise<void> {
+  const { error } = await supabase.rpc('reset_progress')
+  if (error) throw new Error(error.message)
+}
+
+/** Видаляє всі спроби користувача назавжди. Повертає, скільки стерто. */
+export async function deleteServerProgress(): Promise<number> {
+  const { data, error } = await supabase.rpc('delete_all_progress')
+  if (error) throw new Error(error.message)
+  return Number(data ?? 0)
 }

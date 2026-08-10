@@ -91,11 +91,31 @@ export type Database = {
         }
         Relationships: []
       }
+      user_settings: {
+        Row: {
+          reset_at: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          reset_at?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          reset_at?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      current_reset_at: { Args: never; Returns: string }
+      delete_all_progress: { Args: never; Returns: number }
       mistakes: {
         Args: { max_rows?: number; target_scenario: string }
         Returns: {
@@ -115,11 +135,13 @@ export type Database = {
           scenario: string
         }[]
       }
+      reset_progress: { Args: never; Returns: string }
       stats_summary: {
         Args: never
         Returns: {
           best_streak: number
           correct: number
+          reset_at: string
           total: number
         }[]
       }

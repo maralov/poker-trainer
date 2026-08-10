@@ -24,6 +24,7 @@ export function mergeProgress(
   server: PreProgress,
   localDrill: PreProgress['drill'],
   queued: readonly QueuedAttempt[],
+  resetAt: number | null = null,
 ): PreProgress {
   const merged = structuredClone(server)
   merged.drill = structuredClone(localDrill)
@@ -34,6 +35,10 @@ export function mergeProgress(
   let streak = 0
   for (const a of queued) {
     if (a.stage && a.stage !== 'pre') continue
+    // Події, старіші за мітку скидання, сервер уже не рахує — не рахуємо і тут,
+    // інакше скидання «не спрацювало б» на тому, що ще висить у черзі.
+    const answeredAt = Date.parse(a.answered_at)
+    if (resetAt !== null && answeredAt <= resetAt) continue
     const result = recordAnswer(merged, streak, {
       scen: a.scenario as Scenario,
       heroPos: a.hero_pos as Position,
@@ -42,7 +47,7 @@ export function mergeProgress(
       correct: a.correct as Action,
       drill: a.is_drill ?? false,
       isControl: a.is_control ?? false,
-      at: Date.parse(a.answered_at),
+      at: answeredAt,
     })
     streak = result.streak
   }
