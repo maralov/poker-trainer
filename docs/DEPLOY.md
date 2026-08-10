@@ -12,6 +12,14 @@
 2. Зберегти пароль бази: він знадобиться для `db push`.
 3. Project Settings → API → записати **Project URL** і **anon public** ключ.
 
+> **Project URL — це рівно домен, без шляху:**
+> `https://abcdefghijklmnop.supabase.co`
+>
+> Не `.../rest/v1` і не зі слешем у кінці. Клієнт сам дописує `/rest/v1` для
+> даних і `/auth/v1` для входу. Якщо скопіювати URL разом зі шляхом, застосунок
+> зовні працюватиме, а вхід мовчки ламається: запит іде на `/rest/v1/auth/v1/authorize`
+> і Supabase відповідає `No API key found in request`.
+
 > **`service_role` ключ нікуди не вписувати.** Він обходить RLS. У цьому
 > застосунку він не потрібен взагалі.
 
@@ -59,16 +67,21 @@ select polname, cmd from pg_policies where tablename = 'attempts';
 
 ## 5. Замкнути коло
 
-Тепер, коли адреса відома:
+Тепер, коли адреса відома, лишився один екран.
 
-1. **Supabase → Authentication → URL Configuration**:
-   - Site URL: `https://<ваш-домен>`
-   - Redirect URLs: додати `https://<ваш-домен>` і `https://*-<ваш-акаунт>.vercel.app`
-     (щоб працювали прев'ю-деплої)
-2. **Google Cloud → Credentials → ваш OAuth client**:
-   - Authorized JavaScript origins: додати `https://<ваш-домен>`
+**Supabase → Authentication → URL Configuration**:
 
-Без цього кроку вхід завершиться помилкою redirect_uri_mismatch.
+- Site URL: `https://<ваш-домен>`
+- Redirect URLs:
+  - `https://<ваш-домен>/**`
+  - `https://<назва-проекту>-*.vercel.app/**` — щоб працювали прев'ю-деплої
+
+Без цього Supabase проігнорує адресу повернення і викине користувача на Site URL.
+
+> **У Google на цьому кроці нічого міняти не треба.** Браузер іде на Supabase,
+> Supabase — на Google, і `redirect_uri` там завжди Supabase-івський callback,
+> уже вписаний у кроці 2. Authorized JavaScript origins потрібні лише тим, хто
+> вантажить Google-івський JS SDK напряму — це не наш випадок.
 
 ## 6. Smoke-чеклист
 
@@ -96,7 +109,9 @@ select polname, cmd from pg_policies where tablename = 'attempts';
 
 | Симптом | Причина |
 |---|---|
-| `redirect_uri_mismatch` | Крок 5 не виконано або домен вписано з помилкою |
+| `No API key found in request` після кліку «Увійти» | У `VITE_SUPABASE_URL` є зайвий шлях (`/rest/v1`) — має бути лише домен. Виправити у Vercel і **перезібрати**: змінні вшиваються під час збірки |
+| `redirect_uri_mismatch` | У Google (крок 2) неправильний Authorized redirect URI — має бути рівно `https://<project-ref>.supabase.co/auth/v1/callback` |
+| Після входу викидає не туди | Крок 5: адреса не в списку Redirect URLs, тому Supabase повернув на Site URL |
 | Вхід проходить, але статистика порожня | Не виконано `db push`, або RLS вимкнено |
 | `permission denied for table attempts` | Немає `grant ... to authenticated` — перевірте, що міграція застосувалась повністю |
 | Вхід працює локально, але не в проді | У Vercel не задані `VITE_*` змінні; перевірте, що деплой після їх додавання перезібрано |
