@@ -4,7 +4,7 @@
  * розділів стану і нічого зайвого.
  */
 
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { emptyPostProgress, type PostAnswerInput } from '../engine/postflop'
 import { emptyPreProgress, type AnswerInput } from '../engine/progress'
@@ -92,6 +92,55 @@ describe('useProgressStore', () => {
 
     const state = useProgressStore.getState()
     expect(state.pre).toEqual(emptyPreProgress())
+    expect(state.post).toEqual(emptyPostProgress())
+  })
+})
+
+describe('useProgressStore persist migrate', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    // Свіжий екземпляр модуля на кожен тест: рехідрація зі сховища відбувається
+    // один раз при імпорті, тож повторний import того самого модуля її не повторить.
+    vi.resetModules()
+  })
+
+  it('версія 1 без post мігрує на версію 2 з порожнім post, нічого не втрачаючи', async () => {
+    const legacyState = {
+      pre: {
+        total: 5,
+        correct: 3,
+        best: 2,
+        byPos: { UTG: { t: 5, c: 3 } },
+        byScenPos: {},
+        byScen: {},
+        missed: {},
+        log: [],
+        recent: [],
+        drill: { streaks: {}, recent: {} },
+      },
+      postUnlocked: true,
+      postSeen: true,
+      legacyImported: null,
+      legacyChecked: true,
+    }
+    localStorage.setItem(
+      'poker_trainer_web_v1',
+      JSON.stringify({ state: legacyState, version: 1 }),
+    )
+
+    const mod = await import('./progressStore')
+    await new Promise<void>((resolve) => {
+      if (mod.useProgressStore.persist.hasHydrated()) {
+        resolve()
+        return
+      }
+      mod.useProgressStore.persist.onFinishHydration(() => resolve())
+    })
+
+    const state = mod.useProgressStore.getState()
+    expect(state.pre.total).toBe(5)
+    expect(state.pre.correct).toBe(3)
+    expect(state.postUnlocked).toBe(true)
     expect(state.post).toEqual(emptyPostProgress())
   })
 })
