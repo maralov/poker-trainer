@@ -36,6 +36,13 @@ export interface EpisodeEnd {
 }
 
 export interface EpisodeState {
+  /**
+   * Ідентифікатор роздачі для журналу (`episode_id` у схемі бази, спека §8).
+   * engine його не генерує (правило 5 CLAUDE.md: без crypto чи інших
+   * зовнішніх залежностей) — порожній рядок, доки викликач (стор) не передасть
+   * свій через BuildOptions.id.
+   */
+  readonly id: string
   readonly line: 'aggressor' | 'caller'
   readonly scenario: 'rfi' | 'iso' | 'vsraise'
   readonly heroPos: Position

@@ -6,7 +6,8 @@
  * оцінюється в контексті того, як роздача склалась, а не як «мало бути».
  */
 
-import { POSTFLOP_ORDER, type Rng } from '../types'
+import { handOf } from '../cards'
+import { POSTFLOP_ORDER, type Card, type Position, type Rng } from '../types'
 import { buildEpisode, type BuildOptions } from './build'
 import { boardCode, drawCards } from './deck'
 import type { EpisodeEnd, EpisodeState } from './episode'
@@ -46,7 +47,15 @@ export interface HeroDecision {
   readonly label: string
   readonly texture: Texture
   readonly events: BoardEvents
+  /** Скільки опонентів ще активні (не зафолдили) на момент цього рішення. */
   readonly nOpps: number
+  /**
+   * Позиції ВСІХ опонентів роздачі — включно з тими, хто вже зафолдив. Не
+   * плутати з nOpps: після першого фолду в мультиполі вони розходяться, а
+   * `opp_pos` у схемі журналу (спека §8) описує роздачу цілком, а не
+   * миттєвий стан рішення.
+   */
+  readonly oppPositions: readonly Position[]
   readonly ip: boolean
   readonly potBB: number
   readonly toCallBB: number
@@ -54,6 +63,17 @@ export interface HeroDecision {
   readonly options: readonly PostActionOption[]
   readonly correct: PostAction
   readonly why: string
+  /**
+   * Знімок борду й руки героя на момент рішення (копії, не посилання).
+   * answerPost() викликає advance() перед return, тож на момент, коли
+   * викликач читає результат, ep.board уже міг вирости на карту наступної
+   * вулиці, а ep.street — перемкнутись. Без копії журнал записав би вулицю,
+   * якої герой ще не бачив, коли приймав рішення.
+   */
+  readonly board: readonly Card[]
+  readonly hole: readonly Card[]
+  /** Канонічна рука героя: 'AKs', 'AKo', '77' — та сама форма, що вчить префлоп. */
+  readonly hand: string
 }
 
 export interface PostAnswerResult {
@@ -256,6 +276,8 @@ export function heroDecision(ep: EpisodeState): HeroDecision | null {
   const ev = evalHand(hero.hole, ep.board)
   const events = boardEvents(ep.board)
   const nOpps = ep.seats.filter((s) => !s.folded && !s.hero).length
+  // Роздача, а не миттєвий стан: фолди пізніше не звужують цей список.
+  const oppPositions = ep.seats.filter((s) => !s.hero).map((s) => s.pos)
   const owed = r(ep.bet - hero.put)
 
   // Facing визначаємо через ep.raised, а не через hero.put > 0: у мультиполі
@@ -299,6 +321,7 @@ export function heroDecision(ep: EpisodeState): HeroDecision | null {
     texture: ep.texture,
     events,
     nOpps,
+    oppPositions,
     ip: ep.ip,
     potBB: ep.potBB,
     toCallBB: Math.max(0, owed),
@@ -306,6 +329,12 @@ export function heroDecision(ep: EpisodeState): HeroDecision | null {
     options: facing === 'none' ? betOptions(ep) : defendOptions(ep, facing, owed),
     correct: decision.action,
     why: decision.why,
+    // Копії, не посилання: ep.board/hero.hole лишаються мутабельними масивами
+    // всередині рушія (closeStreet() робить ep.board.push), а це рішення має
+    // пам'ятати спот таким, яким його бачив герой у момент вибору.
+    board: [...ep.board],
+    hole: [...hero.hole],
+    hand: handOf(hero.hole),
   }
 }
 

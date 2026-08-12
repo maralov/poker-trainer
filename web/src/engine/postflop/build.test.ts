@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { mulberry32 } from '../../test/rng'
+import { handOf } from '../cards'
 import { BUCKET, HERO_CTX, ISO, RFI, VS_RAISE } from '../ranges'
 import { ACTION_ORDER, POSTFLOP_ORDER } from '../types'
 import { BUILD, LIMP_CALL, LIMP_RANGE, buildEpisode } from './build'
@@ -10,17 +11,6 @@ import { isStrong } from './types'
 
 const sample = (n: number, seed = 1) =>
   Array.from({ length: n }, (_, i) => buildEpisode({ rng: mulberry32(seed + i) }))
-
-/** Канонічна рука з двох карт: 'AKs', 'AKo', '77'. */
-function handOf(hole: readonly { rk: string; s: number }[]): string {
-  const ORDER = 'AKQJT98765432'
-  const a = hole[0]
-  const b = hole[1]
-  if (!a || !b) throw new Error('порожня рука')
-  const [hi, lo] = ORDER.indexOf(a.rk) <= ORDER.indexOf(b.rk) ? [a, b] : [b, a]
-  if (hi.rk === lo.rk) return `${hi.rk}${lo.rk}`
-  return `${hi.rk}${lo.rk}${hi.s === lo.s ? 's' : 'o'}`
-}
 
 describe('buildEpisode · rfi', () => {
   it('той самий seed дає той самий епізод', () => {
@@ -108,6 +98,18 @@ describe('buildEpisode · rfi', () => {
     for (const ep of sample(100, 2500)) {
       for (const seat of ep.seats) expect(seat.stack).toBe(BUILD.startStack - 3)
     }
+  })
+
+  it('id за замовчуванням порожній — engine не генерує ідентифікатори сам', () => {
+    // Правило 5 CLAUDE.md: engine/ не тягне зовнішніх залежностей, а crypto.randomUUID
+    // саме такою залежністю і був би. id заповнює стор — engine лише носить поле.
+    const ep = buildEpisode({ rng: mulberry32(1) })
+    expect(ep.id).toBe('')
+  })
+
+  it('переданий id потрапляє в епізод незмінним', () => {
+    const ep = buildEpisode({ rng: mulberry32(1), id: 'episode-abc-123' })
+    expect(ep.id).toBe('episode-abc-123')
   })
 
   it('починається з флопу без ставок', () => {

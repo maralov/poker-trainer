@@ -31,6 +31,12 @@ export interface BuildOptions {
   readonly strongShare?: number
   readonly maxTries?: number
   readonly scenario?: 'rfi' | 'iso'
+  /**
+   * Ідентифікатор роздачі для журналу. За замовчуванням — порожній рядок:
+   * engine не тягне crypto заради одного uuid (правило 5), тож генерує його
+   * стор перед викликом buildEpisode/startEpisode.
+   */
+  readonly id?: string
 }
 
 /** Позиції, які можуть бути героєм-агресором: ті, що відкривають пот, плюс SB. */
@@ -63,7 +69,7 @@ function pickWeighted(range: ReadonlySet<Hand>, rng: Rng): Hand | null {
 }
 
 /** Одна спроба роздачі. null — не склалось (карт забракло), викликач пробує ще. */
-function dealOnce(scenario: 'rfi' | 'iso', rng: Rng): EpisodeState | null {
+function dealOnce(scenario: 'rfi' | 'iso', rng: Rng, id: string): EpisodeState | null {
   const heroPos = HERO_POSITIONS[Math.floor(rng() * HERO_POSITIONS.length)]
   if (heroPos === undefined) return null
 
@@ -144,6 +150,7 @@ function dealOnce(scenario: 'rfi' | 'iso', rng: Rng): EpisodeState | null {
   const potBB = Math.round((raiseBB * (1 + callers.length) + dead) * 2) / 2
 
   return {
+    id,
     line: 'aggressor',
     scenario,
     heroPos,
@@ -181,12 +188,13 @@ export function buildEpisode(options: BuildOptions = {}): EpisodeState {
   const share = options.strongShare ?? BUILD.strongShare
   const tries = options.maxTries ?? BUILD.maxTries
   const scenario = options.scenario ?? 'rfi'
+  const id = options.id ?? ''
 
   const wantStrong = rng() < share
   let fallback: EpisodeState | null = null
 
   for (let i = 0; i < tries; i++) {
-    const ep = dealOnce(scenario, rng)
+    const ep = dealOnce(scenario, rng, id)
     if (ep === null) continue
     fallback ??= ep
     const hasStrong = ep.seats.some((s) => !s.hero && isStrong(evalHand(s.hole, ep.board).cat))

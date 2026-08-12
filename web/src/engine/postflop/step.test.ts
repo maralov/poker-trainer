@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { mulberry32 } from '../../test/rng'
+import { handOf } from '../cards'
 import { BUILD } from './build'
 import { cardCode } from './deck'
 import { evalHand } from './evaluate'
@@ -188,6 +189,64 @@ describe('перебіг роздачі', () => {
     const ep = playCorrect(12)
     expect(ep.history[0]).toMatch(/відкрив|ізо-рейз/)
     expect(ep.history.length).toBeGreaterThan(1)
+  })
+})
+
+describe('HeroDecision несе знімок споту для журналу', () => {
+  it('board, hole і hand у рішенні відповідають фактичному стану на момент рішення', () => {
+    const ep = startEpisode({ rng: mulberry32(5) })
+    const d = heroDecision(ep)
+    expect(d).not.toBeNull()
+    const hero = ep.seats[ep.heroIdx]
+    expect(hero).toBeDefined()
+    expect(d!.board.map(cardCode)).toEqual(ep.board.map(cardCode))
+    expect(d!.hole.map(cardCode)).toEqual(hero!.hole.map(cardCode))
+    expect(d!.hand).toBe(handOf(hero!.hole))
+  })
+
+  // Регресія на дефект: answerPost() викликає advance() ПЕРЕД return, тож
+  // ep.board на момент, коли викликач читає результат, уже міг вирости на
+  // карту наступної вулиці. Якщо decision.board — жива посилання на той самий
+  // мутований масив, а не копія, журнал записав би вулицю, якої герой ще не
+  // бачив, коли приймав рішення.
+  it('знімок борду в рішенні не мутується, коли advance() дописує карту наступної вулиці', () => {
+    let seen = false
+    for (let s = 1; s <= 500 && !seen; s++) {
+      const ep = startEpisode({ rng: mulberry32(s) })
+      const rng = mulberry32(s + 900)
+      let guard = 0
+      while (!ep.finished && guard++ < 20) {
+        const d = heroDecision(ep)
+        if (!d) break
+        const boardBefore = d.board.map(cardCode)
+        answerPost(ep, d.correct, rng)
+        if (ep.board.length > boardBefore.length) {
+          expect(d.board.map(cardCode), `seed ${s}`).toEqual(boardBefore)
+          seen = true
+          break
+        }
+      }
+    }
+    expect(seen, 'мав трапитись перехід на нову вулицю в межах однієї відповіді').toBe(true)
+  })
+
+  it('oppPositions лишається повним списком опонентів роздачі, навіть коли хтось встиг зафолдити', () => {
+    let seen = false
+    for (let s = 1; s <= 500 && !seen; s++) {
+      const ep = startEpisode({ rng: mulberry32(s) })
+      const dealt = ep.seats.filter((x) => !x.hero).map((x) => x.pos)
+      if (dealt.length < 2) continue
+      const rng = mulberry32(s + 321)
+      let guard = 0
+      while (!ep.finished && guard++ < 20) {
+        const d = heroDecision(ep)
+        if (!d) break
+        expect(d.oppPositions, `seed ${s}`).toEqual(dealt)
+        if (d.nOpps < d.oppPositions.length) seen = true
+        answerPost(ep, d.correct, rng)
+      }
+    }
+    expect(seen, 'мав трапитись фолд опонента до рішення героя в мультиполі').toBe(true)
   })
 })
 

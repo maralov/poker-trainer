@@ -106,3 +106,20 @@ export function dealFromHand(hand: Hand, rng: Rng = Math.random): Card[] {
   const i = Math.floor(rng() * 4)
   return [mk(a, i), mk(b, i)]
 }
+
+/**
+ * Обернена до dealFromHand: дві конкретні карти → канонічна рука ('AKs',
+ * 'AKo', '77'). Раніше жила приватно в build.test.ts — постфлопу вона
+ * потрібна публічно, щоб журнал писав ту саму канонічну руку, яку тренує
+ * префлоп (`hand` у постфлоп-таблиці, спека §8).
+ */
+export function handOf(cards: readonly Card[]): Hand {
+  const a = cards[0]
+  const b = cards[1]
+  if (cards.length !== 2 || a === undefined || b === undefined) {
+    throw new RangeError(`handOf: потрібно рівно дві карти, отримано ${cards.length}`)
+  }
+  const [hi, lo] = RI(a.rk) <= RI(b.rk) ? [a, b] : [b, a]
+  if (hi.rk === lo.rk) return `${hi.rk}${lo.rk}`
+  return `${hi.rk}${lo.rk}${hi.s === lo.s ? 's' : 'o'}`
+}
