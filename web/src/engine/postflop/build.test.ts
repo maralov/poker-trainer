@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import { mulberry32 } from '../../test/rng'
 import { BUCKET, HERO_CTX, ISO, RFI, VS_RAISE } from '../ranges'
-import { POSTFLOP_ORDER } from '../types'
+import { ACTION_ORDER, POSTFLOP_ORDER } from '../types'
 import { BUILD, LIMP_CALL, LIMP_RANGE, buildEpisode } from './build'
 import { cardCode } from './deck'
 import { evalHand } from './evaluate'
@@ -75,12 +75,33 @@ describe('buildEpisode · rfi', () => {
     }
   })
 
-  it('банк рахується за формулою референсу', () => {
-    for (const ep of sample(200, 2100)) {
-      const callers = ep.seats.filter((s) => !s.hero).map((s) => s.pos)
-      const dead = callers.includes('SB') || callers.includes('BB') ? 0.5 : 1.5
-      expect(ep.potBB).toBe(Math.round((3 * (1 + callers.length) + dead) * 2) / 2)
+  // Попередній варіант цього тесту дослівно повторював вираз із build.ts —
+  // такий тест проходить за будь-якої (навіть неправильної) формули банку.
+  // Тут — конкретні числа для конкретних спотів, пораховані вручну.
+  it('банк: CO відкрив 3bb, один колер BTN → 7.5bb', () => {
+    let found = false
+    for (let s = 1; s <= 5000 && !found; s++) {
+      const ep = buildEpisode({ rng: mulberry32(s) })
+      if (ep.heroPos !== 'CO') continue
+      const callers = ep.seats.filter((x) => !x.hero).map((x) => x.pos)
+      if (callers.length !== 1 || callers[0] !== 'BTN') continue
+      expect(ep.potBB).toBe(7.5)
+      found = true
     }
+    expect(found, 'має знайтись CO проти одного колера BTN').toBe(true)
+  })
+
+  it('банк: CO відкрив 3bb, один колер BB → 6.5bb (мертві гроші менші — блайнд уже в поті)', () => {
+    let found = false
+    for (let s = 1; s <= 5000 && !found; s++) {
+      const ep = buildEpisode({ rng: mulberry32(s) })
+      if (ep.heroPos !== 'CO') continue
+      const callers = ep.seats.filter((x) => !x.hero).map((x) => x.pos)
+      if (callers.length !== 1 || callers[0] !== 'BB') continue
+      expect(ep.potBB).toBe(6.5)
+      found = true
+    }
+    expect(found, 'має знайтись CO проти одного колера BB').toBe(true)
   })
 
   it('стеки зменшені на префлоп-внесок', () => {
@@ -145,5 +166,40 @@ describe('buildEpisode · iso', () => {
   it('стрічка історії згадує ізо-рейз', () => {
     const ep = buildEpisode({ scenario: 'iso', rng: mulberry32(21) })
     expect(ep.history[0]).toMatch(/ізо-рейз/)
+  })
+
+  // Регресія на дефект: пул лімперів брався з ACTION_ORDER.slice(hi + 1) —
+  // тих, хто діє ПІСЛЯ героя. Але лімпують ті, хто діє ДО ізолятора; інакше
+  // ізолювати нікого. Саме цього тесту бракувало, і саме тому дефект пройшов.
+  it('лімпер завжди діє до героя за ACTION_ORDER', () => {
+    for (const ep of isoSample(300, 3000)) {
+      const heroOrder = ACTION_ORDER.indexOf(ep.heroPos)
+      for (const seat of ep.seats) {
+        if (seat.hero) continue
+        expect(
+          ACTION_ORDER.indexOf(seat.pos),
+          `${seat.pos} має діяти до ${ep.heroPos}`,
+        ).toBeLessThan(heroOrder)
+      }
+    }
+  })
+
+  it('героєм не буває позиція, перед якою нікого немає (UTG)', () => {
+    for (const ep of isoSample(300, 3500)) {
+      expect(ep.heroPos).not.toBe('UTG')
+    }
+  })
+
+  it('банк: BTN ізолює одного лімпера HJ на 5bb → 11.5bb', () => {
+    let found = false
+    for (let s = 1; s <= 5000 && !found; s++) {
+      const ep = buildEpisode({ scenario: 'iso', rng: mulberry32(s) })
+      if (ep.heroPos !== 'BTN') continue
+      const callers = ep.seats.filter((x) => !x.hero).map((x) => x.pos)
+      if (callers.length !== 1 || callers[0] !== 'HJ') continue
+      expect(ep.potBB).toBe(11.5)
+      found = true
+    }
+    expect(found, 'має знайтись BTN проти одного лімпера HJ').toBe(true)
   })
 })

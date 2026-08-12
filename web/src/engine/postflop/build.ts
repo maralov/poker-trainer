@@ -71,14 +71,20 @@ function dealOnce(scenario: 'rfi' | 'iso', rng: Rng): EpisodeState | null {
   const bucket = BUCKET(heroPos)
   const isIso = scenario === 'iso'
 
+  // На UTG перед героєм нікого немає — лімпувати нікому. Той самий інваріант,
+  // що й у префлопному генераторі iso (spots.ts:122): hi має бути ≥ 1.
+  if (isIso && hi < 1) return null
+
   // Діапазон героя: для iso — ISO його позиції, для rfi — RFI.
   const heroRange = isIso ? (ISO[heroPos] ?? new Set<Hand>()) : (RFI[heroPos] ?? new Set<Hand>())
 
-  // Кандидати в колери: діють після героя. Для rfi — лише ті, у кого
-  // непорожній діапазон захисту; для iso лімпером може бути будь-хто.
-  const pool = ACTION_ORDER.slice(hi + 1).filter((p) =>
-    isIso ? true : VS_RAISE[bucket].call[HERO_CTX(p)].size > 0,
-  )
+  // Кандидати в опонентів. Для rfi — колери діють ПІСЛЯ опена, лише ті, у кого
+  // непорожній діапазон захисту. Для iso — навпаки: лімпери діють ДО героя
+  // (герой їх ізолює), інакше ізолювати нікого — той самий напрямок пулу,
+  // що в spots.ts:123 (ACTION_ORDER.slice(0, hi)).
+  const pool = isIso
+    ? ACTION_ORDER.slice(0, hi)
+    : ACTION_ORDER.slice(hi + 1).filter((p) => VS_RAISE[bucket].call[HERO_CTX(p)].size > 0)
   if (pool.length === 0) return null
 
   // Ваги кількості опонентів. rfi — з референсу: 50% один, 36% два, 14% три.
