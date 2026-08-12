@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
 
 import { mulberry32 } from '../../test/rng'
-import { BUCKET, HERO_CTX, RFI, VS_RAISE } from '../ranges'
+import { BUCKET, HERO_CTX, ISO, RFI, VS_RAISE } from '../ranges'
 import { POSTFLOP_ORDER } from '../types'
-import { BUILD, buildEpisode } from './build'
+import { BUILD, LIMP_CALL, LIMP_RANGE, buildEpisode } from './build'
 import { cardCode } from './deck'
 import { evalHand } from './evaluate'
 import { isStrong } from './types'
@@ -107,5 +107,43 @@ describe('buildEpisode · rfi', () => {
     const share = strong / eps.length
     expect(share, `частка ${share}`).toBeGreaterThan(0.24)
     expect(share, `частка ${share}`).toBeLessThan(0.37)
+  })
+})
+
+describe('buildEpisode · iso', () => {
+  const isoSample = (n: number, seed = 1) =>
+    Array.from({ length: n }, (_, i) => buildEpisode({ scenario: 'iso', rng: mulberry32(seed + i) }))
+
+  it('рука героя з ISO-діапазону, а не з RFI', () => {
+    for (const ep of isoSample(200)) {
+      expect(ep.scenario).toBe('iso')
+      const hero = ep.seats[ep.heroIdx]
+      expect(ISO[ep.heroPos]?.has(handOf(hero!.hole)), `${ep.heroPos}`).toBe(true)
+    }
+  })
+
+  it('опоненти — лімпери, що заколлювали ізолейт', () => {
+    for (const ep of isoSample(200, 700)) {
+      for (const seat of ep.seats) {
+        if (seat.hero) continue
+        const hand = handOf(seat.hole)
+        expect(LIMP_RANGE.has(hand), `${hand} має бути в лімп-діапазоні`).toBe(true)
+        expect(LIMP_CALL.has(hand), `${hand} мав би сфолдити ізолейт`).toBe(true)
+      }
+    }
+  })
+
+  it('лімперів один-два, банк більший за rfi', () => {
+    for (const ep of isoSample(200, 1500)) {
+      const n = ep.seats.filter((s) => !s.hero).length
+      expect(n).toBeGreaterThanOrEqual(1)
+      expect(n).toBeLessThanOrEqual(2)
+      expect(ep.potBB).toBeGreaterThan(9)
+    }
+  })
+
+  it('стрічка історії згадує ізо-рейз', () => {
+    const ep = buildEpisode({ scenario: 'iso', rng: mulberry32(21) })
+    expect(ep.history[0]).toMatch(/ізо-рейз/)
   })
 })
