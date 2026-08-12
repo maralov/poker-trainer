@@ -5,12 +5,15 @@
  * (звіряється з __fixtures__/ref-postflop.json). Свідомі доповнення, яких у
  * референсі немає, бо він знає лише флоп:
  *   1. STRONG розщеплений на STRONG_MADE / STRONG_PAIR (див. types.ts);
- *   2. на пʼятикартковому борді дро не рахуються — добирати нема чого;
+ *   2. дро вмирають, коли добирати вже нема з чого: флеш-дро/стріт-дро й
+ *      «дві оверкарти» — на пʼятикартковому борді (рівер здано), а
+ *      беквдор-флеш — уже на чотирикартковому (лишається одна карта, а
+ *      беквдору треба дві);
  *   3. boardEvents — прапорці подій борду для матриць терну й рівера.
  */
 
 import type { Card } from '../types'
-import type { BoardEvents, HandEval, PostCategory, Texture } from './types'
+import { TEX_LABEL, type BoardEvents, type HandEval, type PostCategory, type Texture } from './types'
 
 /**
  * Нижня карта стріту в наборі рангів, 0 — стріту немає.
@@ -76,28 +79,28 @@ export function evalHand(hole: readonly Card[], board: readonly Card[]): HandEva
 
   let made: 'STRONG' | 'MEDIUM' | 'WEAK' | null = null
   /** Дві пари й краще — саме це відрізняє STRONG_MADE від STRONG_PAIR. */
-  let big = false
+  let twoPairPlus = false
   let label = ''
 
   if (flushMade) {
     made = 'STRONG'
-    big = true
+    twoPairPlus = true
     label = 'флеш'
   } else if (straightMade) {
     made = 'STRONG'
-    big = true
+    twoPairPlus = true
     label = 'стріт'
   } else if (isPocket && bv.includes(h0)) {
     made = 'STRONG'
-    big = true
+    twoPairPlus = true
     label = 'сет'
   } else if (!isPocket && (cnt.get(h0) === 3 || cnt.get(h1) === 3)) {
     made = 'STRONG'
-    big = true
+    twoPairPlus = true
     label = 'трипс'
   } else if (!isPocket && bv.includes(h0) && bv.includes(h1)) {
     made = 'STRONG'
-    big = true
+    twoPairPlus = true
     label = 'дві пари'
   } else if (isPocket) {
     if (h0 > b0) {
@@ -137,15 +140,20 @@ export function evalHand(hole: readonly Card[], board: readonly Card[]): HandEva
   // Дро живі, поки борд не повний. Референс цієї гілки не має — він далі флопу
   // не йде, а на рівері «дро» означало б добір з карти, якої не буде.
   const live = board.length < 5
+  // Беквдор-флешу потрібні ДВІ карти, що ще не випали. На терні (борд=4) до
+  // рівера лишається лише одна — беквдор уже мертвий, хоч дро флеш/стріт і
+  // «дві оверкарти» (їм досить однієї карти) ще живі аж до самого рівера.
+  const backdoorLive = board.length < 4
   // Булеві, а не знайдена масть: індекс ♠ дорівнює 0, і перевірка на істинність
   // самої масті мовчки ковтала б усі пікові дро.
   const flushDraw =
     live && [...suitCnt.entries()].some(([s, n]) => n === 4 && holeSuits.includes(s))
   const backdoor =
-    live && [...suitCnt.entries()].some(([s, n]) => n === 3 && holeSuits.includes(s))
+    backdoorLive && [...suitCnt.entries()].some(([s, n]) => n === 3 && holeSuits.includes(s))
   const sd = live ? straightDraw(all, hv) : null
 
-  const over = made === null && h0 > b0 && h1 > b0
+  // Живе, поки не зданий рівер: до нього одна карта ще може дати топ-пару.
+  const over = live && made === null && h0 > b0 && h1 > b0
 
   const dl: string[] = []
   if (flushDraw && !flushMade) dl.push('флеш-дро')
@@ -154,7 +162,7 @@ export function evalHand(hole: readonly Card[], board: readonly Card[]): HandEva
   if (!flushDraw && backdoor && dl.length === 0) dl.push('беквдор-флеш')
 
   let cat: PostCategory
-  if (made === 'STRONG') cat = big ? 'STRONG_MADE' : 'STRONG_PAIR'
+  if (made === 'STRONG') cat = twoPairPlus ? 'STRONG_MADE' : 'STRONG_PAIR'
   else if ((flushDraw && !flushMade) || sd === 'oesd')
     // Середня рука із сильним дро — теж «сильна», але парного роду.
     cat = made === 'MEDIUM' ? 'STRONG_PAIR' : 'DRAW'
@@ -176,19 +184,25 @@ export function texture(flop: readonly Card[]): { t: Texture; label: string } {
   const v0 = v[0] ?? 0
   const v1 = v[1] ?? 0
   const v2 = v[2] ?? 0
-  if (v0 === v1 || v1 === v2) return { t: 'PAIRED', label: 'спарена' }
 
-  const su = new Map<number, number>()
-  for (const c of flop) su.set(c.s, (su.get(c.s) ?? 0) + 1)
-  const mx = Math.max(...su.values())
+  let t: Texture
+  if (v0 === v1 || v1 === v2) {
+    t = 'PAIRED'
+  } else {
+    const su = new Map<number, number>()
+    for (const c of flop) su.set(c.s, (su.get(c.s) ?? 0) + 1)
+    const mx = Math.max(...su.values())
 
-  let sc = 0
-  if (mx === 3) sc += 2
-  else if (mx === 2) sc += 1
-  if (v0 - v1 <= 2 || v1 - v2 <= 2) sc += 1
-  if (v0 - v2 <= 4) sc += 1
+    let sc = 0
+    if (mx === 3) sc += 2
+    else if (mx === 2) sc += 1
+    if (v0 - v1 <= 2 || v1 - v2 <= 2) sc += 1
+    if (v0 - v2 <= 4) sc += 1
 
-  return sc >= 2 ? { t: 'WET', label: 'мокра' } : { t: 'DRY', label: 'суха' }
+    t = sc >= 2 ? 'WET' : 'DRY'
+  }
+  // Мітки вже описані один раз у types.ts — не дублювати рядки тут.
+  return { t, label: TEX_LABEL[t] }
 }
 
 export function boardEvents(board: readonly Card[]): BoardEvents {
@@ -198,6 +212,9 @@ export function boardEvents(board: readonly Card[]): BoardEvents {
     suit.set(c.s, (suit.get(c.s) ?? 0) + 1)
     rank.set(c.v, (rank.get(c.v) ?? 0) + 1)
   }
+  // Свідомо тільки флоп, не «все, крім останньої карти»: якорем для оверкарти
+  // лишається початкова текстура, тому король услід за тузом на терні на
+  // рівері все одно рахується оверкартою — не «вже бачили старшу».
   const flopTop = Math.max(...board.slice(0, 3).map((c) => c.v))
   const last = board[board.length - 1]
   return {
