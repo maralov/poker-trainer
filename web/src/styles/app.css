@@ -544,6 +544,20 @@ h4:first-child {
   margin-top: 8px;
 }
 
+/* ---- postflop hand story ---- */
+.hand-story {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 14px 0 4px;
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+.hand-story span:last-child {
+  color: var(--ivory);
+}
+
 /* ---- actions ---- */
 .prompt {
   text-align: center;
