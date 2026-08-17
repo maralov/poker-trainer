@@ -82,6 +82,13 @@ export interface PostAnswerInput {
   readonly correct: PostAction
   /** Час відповіді (ms). Інжектується, щоб тести були детермінованими. */
   readonly at?: number
+  /**
+   * Знімок споту для розбору: роздача, борд і рука на момент рішення.
+   * Опційні — виклики, яким розбір не потрібен (тести редюсера), їх не несуть.
+   */
+  readonly episodeId?: string
+  readonly board?: string
+  readonly hand?: string
 }
 
 export interface PostAnswerRecord {
@@ -118,6 +125,11 @@ export function recordPostAnswer(
       ch: input.chosen,
       co: input.correct,
       t: input.at ?? Date.now(),
+      // Порожні поля не пишемо: журнал лежить у localStorage, і `undefined`
+      // у JSON усе одно зникне — краще не робити вигляд, що дані є.
+      ...(input.episodeId === undefined ? {} : { ep: input.episodeId }),
+      ...(input.board === undefined ? {} : { board: input.board }),
+      ...(input.hand === undefined ? {} : { hand: input.hand }),
     })
     if (progress.log.length > POST_LOG_LIMIT) {
       progress.log.splice(0, progress.log.length - POST_LOG_LIMIT)

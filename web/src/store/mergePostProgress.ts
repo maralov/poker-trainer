@@ -37,6 +37,9 @@ export function mergePostProgress(
       chosen: row.chosen as PostAction,
       correct: row.correct as PostAction,
       at: Date.parse(row.answered_at),
+      episodeId: row.episode_id,
+      board: row.board,
+      hand: row.hand,
     })
     streak = result.streak
   }

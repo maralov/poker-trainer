@@ -72,3 +72,25 @@ describe('mergePostProgress', () => {
     expect(server.byStreet).toEqual({})
   })
 })
+
+describe('знімок споту з черги', () => {
+  it('борд, рука і роздача з непереданих подій доходять до журналу помилок', () => {
+    const server = emptyPostProgress()
+    const merged = mergePostProgress(server, [
+      queued({
+        episode_id: 'episode-9',
+        board: 'Ks7d2c',
+        hand: 'AKs',
+        street: 'flop',
+        category: 'STRONG_PAIR',
+        facing: 'big_bet',
+        chosen: 'call',
+        correct: 'fold',
+      }),
+    ])
+
+    expect(merged.log[0]?.ep).toBe('episode-9')
+    expect(merged.log[0]?.board).toBe('Ks7d2c')
+    expect(merged.log[0]?.hand).toBe('AKs')
+  })
+})

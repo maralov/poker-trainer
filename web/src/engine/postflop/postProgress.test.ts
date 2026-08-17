@@ -94,3 +94,47 @@ describe('recordPostAnswer', () => {
     expect(postModeKey(3, true)).toBe('MULTI·IP')
   })
 })
+
+describe('знімок споту в журналі', () => {
+  it('роздача, борд і рука доходять до запису помилки', () => {
+    const p = emptyPostProgress()
+    recordPostAnswer(p, 0, {
+      street: 'turn',
+      cat: 'STRONG_PAIR',
+      texture: 'WET',
+      facing: 'big_bet',
+      nOpps: 1,
+      ip: false,
+      chosen: 'call',
+      correct: 'fold',
+      at: 5,
+      episodeId: 'episode-7',
+      board: 'Ks7d2c9h',
+      hand: 'AKs',
+    })
+
+    expect(p.log[0]?.ep).toBe('episode-7')
+    expect(p.log[0]?.board).toBe('Ks7d2c9h')
+    expect(p.log[0]?.hand).toBe('AKs')
+  })
+
+  it('без знімка запис лишається валідним — старі журнали не ламаються', () => {
+    const p = emptyPostProgress()
+    recordPostAnswer(p, 0, {
+      street: 'flop',
+      cat: 'AIR',
+      texture: 'DRY',
+      facing: 'none',
+      nOpps: 1,
+      ip: true,
+      chosen: 'b33',
+      correct: 'check',
+      at: 5,
+    })
+
+    const entry = p.log[0]
+    expect(entry).toBeDefined()
+    expect(entry && 'ep' in entry).toBe(false)
+    expect(entry && 'board' in entry).toBe(false)
+  })
+})

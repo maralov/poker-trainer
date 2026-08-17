@@ -83,6 +83,11 @@ export const usePostSessionStore = create<PostSessionState>()((set, get) => ({
         ip: d.ip,
         chosen,
         correct: d.correct,
+        // Знімок споту для розбору: без нього в журналі видно категорію, але не
+        // видно, яка це була рука і яка роздача.
+        episodeId: episode.id,
+        board: boardCode(d.board),
+        hand: d.hand,
       },
       get().streak,
     )
