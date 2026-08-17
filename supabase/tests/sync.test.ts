@@ -9,7 +9,6 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 
 import { SyncQueue, type QueueStorage, type QueuedAttempt } from '../../web/src/api/syncQueue'
-import type { Db } from '../../web/src/api/supabase'
 
 const SUPABASE_URL = process.env['SUPABASE_URL'] ?? 'http://127.0.0.1:54321'
 const ANON_KEY =
@@ -88,10 +87,14 @@ beforeEach(async () => {
 })
 
 const makeQueue = () =>
-  new SyncQueue({
-    db: client as unknown as Db,
+  new SyncQueue<QueuedAttempt>({
     storage,
     isAuthenticated: () => authenticated,
+    storageKey: 'test-queue',
+    send: async (batch) =>
+      await client
+        .from('attempts')
+        .upsert([...batch], { onConflict: 'user_id,client_id', ignoreDuplicates: true }),
   })
 
 const countRows = async (): Promise<number> => {

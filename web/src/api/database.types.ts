@@ -91,6 +91,87 @@ export type Database = {
         }
         Relationships: []
       }
+      postflop_attempts: {
+        Row: {
+          answered_at: string
+          board: string
+          category: string
+          chosen: string
+          client_id: string
+          correct: string
+          created_at: string
+          episode_id: string
+          facing: string
+          hand: string
+          hero_pos: string
+          hole: string
+          id: number
+          ip: boolean
+          is_correct: boolean
+          line: string
+          n_opps: number
+          opp_pos: string
+          pot_bb: number
+          repeat_aggro: boolean
+          scenario: string
+          street: string
+          texture: string
+          user_id: string
+        }
+        Insert: {
+          answered_at: string
+          board: string
+          category: string
+          chosen: string
+          client_id: string
+          correct: string
+          created_at?: string
+          episode_id: string
+          facing: string
+          hand: string
+          hero_pos: string
+          hole: string
+          id?: never
+          ip: boolean
+          is_correct?: boolean
+          line: string
+          n_opps: number
+          opp_pos: string
+          pot_bb: number
+          repeat_aggro?: boolean
+          scenario: string
+          street: string
+          texture: string
+          user_id?: string
+        }
+        Update: {
+          answered_at?: string
+          board?: string
+          category?: string
+          chosen?: string
+          client_id?: string
+          correct?: string
+          created_at?: string
+          episode_id?: string
+          facing?: string
+          hand?: string
+          hero_pos?: string
+          hole?: string
+          id?: never
+          ip?: boolean
+          is_correct?: boolean
+          line?: string
+          n_opps?: number
+          opp_pos?: string
+          pot_bb?: number
+          repeat_aggro?: boolean
+          scenario?: string
+          street?: string
+          texture?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_settings: {
         Row: {
           reset_at: string | null

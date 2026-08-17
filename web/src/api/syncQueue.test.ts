@@ -15,8 +15,8 @@ import {
   SyncQueue,
   type QueueStorage,
   type QueuedAttempt,
+  type SendResult,
 } from './syncQueue'
-import type { Db } from './supabase'
 
 class MemoryStorage implements QueueStorage {
   private data = new Map<string, string>()
@@ -41,20 +41,20 @@ const attempt = (id: string): QueuedAttempt => ({
   answered_at: '2026-08-01T10:00:00.000Z',
 })
 
-/** Підроблений клієнт: фіксує надіслані батчі, вміє віддавати помилку. */
-function fakeDb(behaviour: { error?: string } = {}) {
+/**
+ * Підроблена відправка: фіксує надіслані батчі, вміє віддавати помилку.
+ * Клієнта бази підробляти більше не треба — черга параметризована самою
+ * функцією відправки, тож тест обходиться без приведень типів.
+ */
+function fakeSend(behaviour: { error?: string } = {}) {
   const batches: QueuedAttempt[][] = []
-  const db = {
-    from: () => ({
-      upsert: (rows: QueuedAttempt[]) => {
-        batches.push(rows)
-        return Promise.resolve(
-          behaviour.error ? { error: { message: behaviour.error } } : { error: null },
-        )
-      },
-    }),
-  } as unknown as Db
-  return { db, batches }
+  const send = (batch: readonly QueuedAttempt[]): Promise<SendResult> => {
+    batches.push([...batch])
+    return Promise.resolve(
+      behaviour.error ? { error: { message: behaviour.error } } : { error: null },
+    )
+  }
+  return { send, batches }
 }
 
 let storage: MemoryStorage
@@ -66,8 +66,8 @@ beforeEach(() => {
 
 describe('накопичення', () => {
   it('сигналить про потребу відправки на десятій події', () => {
-    const { db } = fakeDb()
-    const q = new SyncQueue({ db, storage, isAuthenticated: () => true })
+    const { send } = fakeSend()
+    const q = new SyncQueue<QueuedAttempt>({ storage, isAuthenticated: () => true, storageKey: QUEUE_KEY, send })
     for (let i = 1; i < FLUSH_AT; i++) {
       expect(q.enqueue(attempt(`e${i}`)), `подія ${i}`).toBe(false)
     }
@@ -76,21 +76,21 @@ describe('накопичення', () => {
   })
 
   it('черга переживає перестворення обʼєкта — вона в сховищі, не в памʼяті', () => {
-    const { db } = fakeDb()
-    new SyncQueue({ db, storage, isAuthenticated: () => true }).enqueue(attempt('a'))
-    const revived = new SyncQueue({ db, storage, isAuthenticated: () => true })
+    const { send } = fakeSend()
+    new SyncQueue<QueuedAttempt>({ storage, isAuthenticated: () => true, storageKey: QUEUE_KEY, send }).enqueue(attempt('a'))
+    const revived = new SyncQueue<QueuedAttempt>({ storage, isAuthenticated: () => true, storageKey: QUEUE_KEY, send })
     expect(revived.size).toBe(1)
   })
 
   it('не росте безмежно: найстаріші події витісняються', () => {
-    const { db } = fakeDb()
+    const { send } = fakeSend()
     // Черга наповнюється одним записом, а не 5000 викликами enqueue:
     // enqueue перечитує і перезаписує все сховище щоразу, тож розгін до межі
     // коштував би O(n²) і робив тест повільним без користі. Перевіряємо межу.
     const full = Array.from({ length: QUEUE_LIMIT }, (_, i) => attempt(`e${i}`))
     storage.setItem(QUEUE_KEY, JSON.stringify(full))
 
-    const q = new SyncQueue({ db, storage, isAuthenticated: () => true })
+    const q = new SyncQueue<QueuedAttempt>({ storage, isAuthenticated: () => true, storageKey: QUEUE_KEY, send })
     expect(q.size).toBe(QUEUE_LIMIT)
 
     for (let i = 0; i < 5; i++) q.enqueue(attempt(`new${i}`))
@@ -102,33 +102,33 @@ describe('накопичення', () => {
   })
 
   it('пошкоджене сховище не ронить чергу', () => {
-    const { db } = fakeDb()
+    const { send } = fakeSend()
     storage.setItem(QUEUE_KEY, 'не json')
-    const q = new SyncQueue({ db, storage, isAuthenticated: () => true })
+    const q = new SyncQueue<QueuedAttempt>({ storage, isAuthenticated: () => true, storageKey: QUEUE_KEY, send })
     expect(q.size).toBe(0)
     q.enqueue(attempt('a'))
     expect(q.size).toBe(1)
   })
 
   it('відкидає записи без client_id', () => {
-    const { db } = fakeDb()
+    const { send } = fakeSend()
     storage.setItem(QUEUE_KEY, JSON.stringify([{ hand: 'AA' }, attempt('good'), null, 'сміття']))
-    const q = new SyncQueue({ db, storage, isAuthenticated: () => true })
+    const q = new SyncQueue<QueuedAttempt>({ storage, isAuthenticated: () => true, storageKey: QUEUE_KEY, send })
     expect(q.peek().map((a) => a.client_id)).toEqual(['good'])
   })
 })
 
 describe('відправка', () => {
   it('порожня черга нічого не шле', async () => {
-    const { db, batches } = fakeDb()
-    const q = new SyncQueue({ db, storage, isAuthenticated: () => true })
+    const { send, batches } = fakeSend()
+    const q = new SyncQueue<QueuedAttempt>({ storage, isAuthenticated: () => true, storageKey: QUEUE_KEY, send })
     expect(await q.flush()).toMatchObject({ status: 'empty', sent: 0 })
     expect(batches).toHaveLength(0)
   })
 
   it('успішна відправка спорожняє чергу', async () => {
-    const { db, batches } = fakeDb()
-    const q = new SyncQueue({ db, storage, isAuthenticated: () => true })
+    const { send, batches } = fakeSend()
+    const q = new SyncQueue<QueuedAttempt>({ storage, isAuthenticated: () => true, storageKey: QUEUE_KEY, send })
     q.enqueue(attempt('a'))
     q.enqueue(attempt('b'))
 
@@ -139,8 +139,8 @@ describe('відправка', () => {
   })
 
   it('без логіну черга зберігається до кращих часів', async () => {
-    const { db, batches } = fakeDb()
-    const q = new SyncQueue({ db, storage, isAuthenticated: () => false })
+    const { send, batches } = fakeSend()
+    const q = new SyncQueue<QueuedAttempt>({ storage, isAuthenticated: () => false, storageKey: QUEUE_KEY, send })
     q.enqueue(attempt('a'))
 
     expect(await q.flush()).toMatchObject({ status: 'unauthenticated', pending: 1 })
@@ -150,8 +150,8 @@ describe('відправка', () => {
 
   it('офлайн не втрачає події', async () => {
     vi.stubGlobal('navigator', { onLine: false })
-    const { db, batches } = fakeDb()
-    const q = new SyncQueue({ db, storage, isAuthenticated: () => true })
+    const { send, batches } = fakeSend()
+    const q = new SyncQueue<QueuedAttempt>({ storage, isAuthenticated: () => true, storageKey: QUEUE_KEY, send })
     q.enqueue(attempt('a'))
 
     expect(await q.flush()).toMatchObject({ status: 'offline', pending: 1 })
@@ -160,8 +160,8 @@ describe('відправка', () => {
   })
 
   it('помилка сервера лишає події в черзі', async () => {
-    const { db } = fakeDb({ error: 'мережа впала' })
-    const q = new SyncQueue({ db, storage, isAuthenticated: () => true })
+    const { send } = fakeSend({ error: 'мережа впала' })
+    const q = new SyncQueue<QueuedAttempt>({ storage, isAuthenticated: () => true, storageKey: QUEUE_KEY, send })
     q.enqueue(attempt('a'))
 
     const r = await q.flush()
@@ -171,8 +171,8 @@ describe('відправка', () => {
   })
 
   it('великий батч ріжеться до ліміту, решта лишається', async () => {
-    const { db, batches } = fakeDb()
-    const q = new SyncQueue({ db, storage, isAuthenticated: () => true })
+    const { send, batches } = fakeSend()
+    const q = new SyncQueue<QueuedAttempt>({ storage, isAuthenticated: () => true, storageKey: QUEUE_KEY, send })
     for (let i = 0; i < BATCH_LIMIT + 25; i++) q.enqueue(attempt(`e${i}`))
 
     const r = await q.flush()
@@ -181,20 +181,20 @@ describe('відправка', () => {
   })
 
   it('події, додані під час відправки, не губляться', async () => {
-    let resolveUpsert: (v: { error: null }) => void = () => {}
-    const db = {
-      from: () => ({
-        upsert: () => new Promise((res) => (resolveUpsert = res as typeof resolveUpsert)),
-      }),
-    } as unknown as Db
+    // Відправка навмисно зависає, доки тест не відпустить її вручну.
+    let finish: (v: SendResult) => void = () => {}
+    const send = (): Promise<SendResult> =>
+      new Promise((res) => {
+        finish = res
+      })
 
-    const q = new SyncQueue({ db, storage, isAuthenticated: () => true })
+    const q = new SyncQueue<QueuedAttempt>({ storage, isAuthenticated: () => true, storageKey: QUEUE_KEY, send })
     q.enqueue(attempt('a'))
 
     const flushing = q.flush()
     // Гравець відповів, поки запит ще летів.
     q.enqueue(attempt('b'))
-    resolveUpsert({ error: null })
+    finish({ error: null })
     const r = await flushing
 
     expect(r.sent).toBe(1)
@@ -202,8 +202,8 @@ describe('відправка', () => {
   })
 
   it('паралельні виклики зливаються в один запит', async () => {
-    const { db, batches } = fakeDb()
-    const q = new SyncQueue({ db, storage, isAuthenticated: () => true })
+    const { send, batches } = fakeSend()
+    const q = new SyncQueue<QueuedAttempt>({ storage, isAuthenticated: () => true, storageKey: QUEUE_KEY, send })
     q.enqueue(attempt('a'))
 
     const [r1, r2, r3] = await Promise.all([q.flush(), q.flush(), q.flush()])
@@ -215,8 +215,8 @@ describe('відправка', () => {
 describe('повтори з backoff', () => {
   it('після помилки наступна спроба відкладається', async () => {
     let now = 1_000_000
-    const { db, batches } = fakeDb({ error: 'впало' })
-    const q = new SyncQueue({ db, storage, isAuthenticated: () => true, now: () => now })
+    const { send, batches } = fakeSend({ error: 'впало' })
+    const q = new SyncQueue<QueuedAttempt>({ storage, isAuthenticated: () => true, now: () => now, storageKey: QUEUE_KEY, send })
     q.enqueue(attempt('a'))
 
     await q.flush()
@@ -233,8 +233,8 @@ describe('повтори з backoff', () => {
 
   it('затримка росте з кожною невдачею', async () => {
     let now = 1_000_000
-    const { db, batches } = fakeDb({ error: 'впало' })
-    const q = new SyncQueue({ db, storage, isAuthenticated: () => true, now: () => now })
+    const { send, batches } = fakeSend({ error: 'впало' })
+    const q = new SyncQueue<QueuedAttempt>({ storage, isAuthenticated: () => true, now: () => now, storageKey: QUEUE_KEY, send })
     q.enqueue(attempt('a'))
 
     await q.flush()
@@ -254,8 +254,8 @@ describe('повтори з backoff', () => {
 
   it('force ігнорує паузу — для ручного «спробувати зараз»', async () => {
     let now = 1_000_000
-    const { db, batches } = fakeDb({ error: 'впало' })
-    const q = new SyncQueue({ db, storage, isAuthenticated: () => true, now: () => now })
+    const { send, batches } = fakeSend({ error: 'впало' })
+    const q = new SyncQueue<QueuedAttempt>({ storage, isAuthenticated: () => true, now: () => now, storageKey: QUEUE_KEY, send })
     q.enqueue(attempt('a'))
 
     await q.flush()
@@ -268,16 +268,12 @@ describe('повтори з backoff', () => {
     let now = 1_000_000
     let failing = true
     const batches: unknown[][] = []
-    const db = {
-      from: () => ({
-        upsert: (rows: unknown[]) => {
-          batches.push(rows)
-          return Promise.resolve(failing ? { error: { message: 'впало' } } : { error: null })
-        },
-      }),
-    } as unknown as Db
+    const send = (batch: readonly QueuedAttempt[]): Promise<SendResult> => {
+      batches.push([...batch])
+      return Promise.resolve(failing ? { error: { message: 'впало' } } : { error: null })
+    }
 
-    const q = new SyncQueue({ db, storage, isAuthenticated: () => true, now: () => now })
+    const q = new SyncQueue<QueuedAttempt>({ storage, isAuthenticated: () => true, now: () => now, storageKey: QUEUE_KEY, send })
     q.enqueue(attempt('a'))
     await q.flush()
 
@@ -293,8 +289,8 @@ describe('повтори з backoff', () => {
 
   it('resetBackoff дозволяє відправку одразу після логіну', async () => {
     let now = 1_000_000
-    const { db, batches } = fakeDb({ error: 'впало' })
-    const q = new SyncQueue({ db, storage, isAuthenticated: () => true, now: () => now })
+    const { send, batches } = fakeSend({ error: 'впало' })
+    const q = new SyncQueue<QueuedAttempt>({ storage, isAuthenticated: () => true, now: () => now, storageKey: QUEUE_KEY, send })
     q.enqueue(attempt('a'))
 
     await q.flush()

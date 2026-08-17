@@ -1,40 +1,55 @@
 /**
- * Заглушка синку постфлопу (Етап 2).
+ * Черга синку постфлопу (Етап 2).
  *
- * Форма QueuedPostAttempt фіксує майбутню схему таблиці `postflop_attempts`
- * (спека §8) уже зараз, щоб стор і схема бази не розійшлись до того, як у
- * post-3 з'явиться справжня черга — за зразком api/syncQueue.ts: localStorage,
- * батчі, бекоф, ідемпотентність через client_id. Поки що тренування Етапу 2
- * пише лише в локальний прогрес (store/progressStore.ts), мережа йому не
- * потрібна (правило 6 CLAUDE.md).
+ * Окремий інстанс тієї самої SyncQueue з власним ключем у localStorage:
+ * таблиці в етапів різні, і затик на одному не має тримати інший. Розклад
+ * відправки спільний — його веде sync.ts, тут лише сама черга і лічильник
+ * для інтерфейсу.
  */
 
-export interface QueuedPostAttempt {
-  readonly client_id: string
-  /** Ідентифікатор роздачі: кілька рядків цієї події можуть належати одній роздачі. */
-  readonly episode_id: string
-  readonly line: string
-  readonly scenario: string
-  readonly hero_pos: string
-  /** Позиції опонентів через кому. */
-  readonly opp_pos: string
-  readonly n_opps: number
-  readonly ip: boolean
-  readonly street: string
-  readonly board: string
-  readonly hand: string
-  readonly hole: string
-  readonly category: string
-  readonly texture: string
-  readonly facing: string
-  readonly repeat_aggro: boolean
-  readonly pot_bb: number
-  readonly chosen: string
-  readonly correct: string
-  readonly answered_at: string
+import { create } from 'zustand'
+
+import { useAuthStore } from '../store/authStore'
+import { supabase, type PostflopAttemptInsert } from './supabase'
+import { POST_QUEUE_KEY, SyncQueue } from './syncQueue'
+
+export type QueuedPostAttempt = PostflopAttemptInsert & { client_id: string }
+
+export const postQueue = new SyncQueue<QueuedPostAttempt>({
+  storage: globalThis.localStorage,
+  isAuthenticated: () => useAuthStore.getState().session !== null,
+  storageKey: POST_QUEUE_KEY,
+  // async, а не пряме повернення білдера: PostgrestFilterBuilder — PromiseLike,
+  // і без await він не звужується до Promise<SendResult>.
+  send: async (batch) =>
+    await supabase
+      .from('postflop_attempts')
+      .upsert([...batch], { onConflict: 'user_id,client_id', ignoreDuplicates: true }),
+})
+
+export interface PostSyncState {
+  pending: number
+  /** Знімок черги — щоб React бачив зміни, а не лише лічильник. */
+  queued: QueuedPostAttempt[]
 }
 
-/** post-3 замінить справжньою чергою; поки що подія нікуди не йде. */
-export function recordPostAttempt(_attempt: QueuedPostAttempt): void {
-  // Навмисно порожньо.
+export const usePostSyncStore = create<PostSyncState>()(() => ({
+  pending: postQueue.size,
+  queued: postQueue.peek(),
+}))
+
+const refresh = (): void => {
+  usePostSyncStore.setState({ pending: postQueue.size, queued: postQueue.peek() })
+}
+
+/** Кладе рішення в чергу і, якщо накопичилось достатньо, одразу шле. */
+export function recordPostAttempt(attempt: QueuedPostAttempt): void {
+  const shouldFlush = postQueue.enqueue(attempt)
+  refresh()
+  if (shouldFlush) void flushPostQueue()
+}
+
+export async function flushPostQueue(force = false): Promise<void> {
+  await postQueue.flush(force)
+  refresh()
 }

@@ -12,9 +12,11 @@
  * Модуль не імпортує React: логіка черги тестується без рендера.
  */
 
-import type { AttemptInsert, Db } from './supabase'
+import type { AttemptInsert } from './supabase'
 
 export const QUEUE_KEY = 'poker_trainer_sync_queue_v1'
+/** Постфлоп має власну чергу: етапи не мають блокувати один одного. */
+export const POST_QUEUE_KEY = 'poker_trainer_post_sync_queue_v1'
 
 /** Скільки подій накопичити, перш ніж слати не чекаючи таймера. */
 export const FLUSH_AT = 10
@@ -34,12 +36,24 @@ export interface QueueStorage {
   setItem(key: string, value: string): void
 }
 
-export interface SyncDeps {
-  db: Db
+/** Те, що повертає відправка. Форма збігається з відповіддю supabase-js. */
+export interface SendResult {
+  readonly error: { readonly message: string } | null
+}
+
+export interface SyncDeps<T extends { client_id: string }> {
   storage: QueueStorage
   /** Чи є зараз авторизований користувач. Без нього слати нікуди. */
   isAuthenticated: () => boolean
   now?: () => number
+  /** Ключ у localStorage: у кожної черги свій. */
+  storageKey: string
+  /**
+   * Відправка батча — єдине місце, яке знає про таблицю. Черга параметризована
+   * саме нею, а не назвою таблиці: так вона лишається чистою (не тягне
+   * supabase) і тестується без підробленого клієнта бази.
+   */
+  send: (batch: readonly T[]) => Promise<SendResult>
 }
 
 export interface FlushResult {
@@ -51,37 +65,41 @@ export interface FlushResult {
   readonly error?: string
 }
 
-function readQueue(storage: QueueStorage): QueuedAttempt[] {
+function readQueue<T extends { client_id: string }>(storage: QueueStorage, key: string): T[] {
   try {
-    const raw = storage.getItem(QUEUE_KEY)
+    const raw = storage.getItem(key)
     if (!raw) return []
     const parsed: unknown = JSON.parse(raw)
     if (!Array.isArray(parsed)) return []
     // Пошкоджений запис не має ронити тренування — просто відкидаємо його.
     return parsed.filter(
-      (e): e is QueuedAttempt =>
-        typeof e === 'object' && e !== null && typeof (e as QueuedAttempt).client_id === 'string',
+      (e): e is T =>
+        typeof e === 'object' && e !== null && typeof (e as T).client_id === 'string',
     )
   } catch {
     return []
   }
 }
 
-function writeQueue(storage: QueueStorage, items: readonly QueuedAttempt[]): void {
+function writeQueue<T extends { client_id: string }>(
+  storage: QueueStorage,
+  key: string,
+  items: readonly T[],
+): void {
   try {
-    storage.setItem(QUEUE_KEY, JSON.stringify(items))
+    storage.setItem(key, JSON.stringify(items))
   } catch {
     // Переповнене або недоступне сховище: краще втратити чергу, ніж застосунок.
   }
 }
 
-export class SyncQueue {
-  private readonly deps: SyncDeps
+export class SyncQueue<T extends { client_id: string } = QueuedAttempt> {
+  private readonly deps: SyncDeps<T>
   private failures = 0
   private nextAttemptAt = 0
   private inFlight: Promise<FlushResult> | null = null
 
-  constructor(deps: SyncDeps) {
+  constructor(deps: SyncDeps<T>) {
     this.deps = deps
   }
 
@@ -89,21 +107,29 @@ export class SyncQueue {
     return this.deps.now?.() ?? Date.now()
   }
 
-  get size(): number {
-    return readQueue(this.deps.storage).length
+  private read(): T[] {
+    return readQueue<T>(this.deps.storage, this.deps.storageKey)
   }
 
-  peek(): QueuedAttempt[] {
-    return readQueue(this.deps.storage)
+  private write(items: readonly T[]): void {
+    writeQueue(this.deps.storage, this.deps.storageKey, items)
+  }
+
+  get size(): number {
+    return this.read().length
+  }
+
+  peek(): T[] {
+    return this.read()
   }
 
   /** Кладе подію в чергу. Повертає true, якщо варто спробувати відправку зараз. */
-  enqueue(attempt: QueuedAttempt): boolean {
-    const queue = readQueue(this.deps.storage)
+  enqueue(attempt: T): boolean {
+    const queue = this.read()
     queue.push(attempt)
     // Черга не має рости безмежно, якщо синк не працює тижнями.
     if (queue.length > QUEUE_LIMIT) queue.splice(0, queue.length - QUEUE_LIMIT)
-    writeQueue(this.deps.storage, queue)
+    this.write(queue)
     return queue.length >= FLUSH_AT
   }
 
@@ -120,7 +146,7 @@ export class SyncQueue {
   }
 
   private async doFlush(force: boolean): Promise<FlushResult> {
-    const queue = readQueue(this.deps.storage)
+    const queue = this.read()
     if (!queue.length) return { sent: 0, pending: 0, status: 'empty' }
 
     if (!this.deps.isAuthenticated()) {
@@ -134,10 +160,9 @@ export class SyncQueue {
     }
 
     const batch = queue.slice(0, BATCH_LIMIT)
-    const { error } = await this.deps.db
-      .from('attempts')
-      // Повторна відправка того самого батча нічого не дублює.
-      .upsert(batch, { onConflict: 'user_id,client_id', ignoreDuplicates: true })
+    // Повторна відправка того самого батча нічого не дублює: за це відповідає
+    // unique (user_id, client_id) у базі плюс ignoreDuplicates у самій send.
+    const { error } = await this.deps.send(batch)
 
     if (error) {
       this.failures++
@@ -150,10 +175,10 @@ export class SyncQueue {
     this.nextAttemptAt = 0
 
     // Перечитуємо: поки летів запит, тренування могло дописати нові події.
-    const current = readQueue(this.deps.storage)
+    const current = this.read()
     const sentIds = new Set(batch.map((a) => a.client_id))
     const rest = current.filter((a) => !sentIds.has(a.client_id))
-    writeQueue(this.deps.storage, rest)
+    this.write(rest)
 
     return { sent: batch.length, pending: rest.length, status: 'ok' }
   }
@@ -165,6 +190,6 @@ export class SyncQueue {
   }
 
   clear(): void {
-    writeQueue(this.deps.storage, [])
+    this.write([])
   }
 }

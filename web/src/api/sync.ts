@@ -11,12 +11,19 @@ import { useAuthStore } from '../store/authStore'
 import { useProgressStore } from '../store/progressStore'
 import { migrateLocalHistory } from './migrateLocal'
 import { supabase } from './supabase'
-import { FLUSH_INTERVAL_MS, SyncQueue, type QueuedAttempt } from './syncQueue'
+import { flushPostQueue } from './postSync'
+import { FLUSH_INTERVAL_MS, QUEUE_KEY, SyncQueue, type QueuedAttempt } from './syncQueue'
 
-export const queue = new SyncQueue({
-  db: supabase,
+export const queue = new SyncQueue<QueuedAttempt>({
   storage: globalThis.localStorage,
   isAuthenticated: () => useAuthStore.getState().session !== null,
+  storageKey: QUEUE_KEY,
+  // async, а не пряме повернення білдера: PostgrestFilterBuilder — PromiseLike,
+  // і без await він не звужується до Promise<SendResult>.
+  send: async (batch) =>
+    await supabase
+      .from('attempts')
+      .upsert([...batch], { onConflict: 'user_id,client_id', ignoreDuplicates: true }),
 })
 
 export interface SyncState {
@@ -45,6 +52,9 @@ async function run(force = false): Promise<void> {
   if (useSyncStore.getState().syncing) return
   useSyncStore.setState({ syncing: true })
   try {
+    // Постфлоп їде тим самим циклом: окрема черга, але спільний таймер,
+    // спільна реакція на повернення мережі й на закриття вкладки.
+    await flushPostQueue(force)
     const r = await queue.flush(force)
     useSyncStore.setState({
       pending: r.pending,

@@ -34,3 +34,6 @@ export const supabase: Db = createClient<Database>(url, anonKey, {
 
 export type AttemptRow = Database['public']['Tables']['attempts']['Row']
 export type AttemptInsert = Database['public']['Tables']['attempts']['Insert']
+
+export type PostflopAttemptRow = Database['public']['Tables']['postflop_attempts']['Row']
+export type PostflopAttemptInsert = Database['public']['Tables']['postflop_attempts']['Insert']
