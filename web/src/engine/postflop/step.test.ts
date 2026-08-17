@@ -416,3 +416,72 @@ describe('ризик 5 — delayed', () => {
     expect(sawNotDelayed, 'мала траплятись ставка на флопі → not delayed на терні').toBe(true)
   })
 })
+
+describe('лінія колера', () => {
+  const startCaller = (seed: number) =>
+    startEpisode({ scenario: 'vsraise', rng: mulberry32(seed) })
+
+  it('рішення несе лінію — від неї залежать §5.1а і §5.4', () => {
+    for (let s = 1; s <= 50; s++) {
+      const d = heroDecision(startCaller(s))
+      if (d) expect(d.line).toBe('caller')
+    }
+  })
+
+  it('колер OOP на флопі без ставки завжди чекає', () => {
+    let seen = 0
+    for (let s = 1; s <= 400 && seen < 5; s++) {
+      const d = heroDecision(startCaller(s))
+      if (!d || d.ip || d.street !== 'flop' || d.facing !== 'none') continue
+      expect(d.correct, `seed ${s}`).toBe('check')
+      seen++
+    }
+    expect(seen, 'не трапилось жодного OOP-споту без ставки').toBeGreaterThan(0)
+  })
+
+  // Саме тут §5.4 розходиться з §5.5: проти першої малої ставки одна пара
+  // рейзить, а не колле. Якщо прапорець vsCbet не доїхав до матриці — тест впаде.
+  it('одна пара проти малого c-bet рейзить', () => {
+    for (let s = 1; s <= 3000; s++) {
+      const d = heroDecision(startCaller(s))
+      if (!d || d.street !== 'flop' || d.cat !== 'STRONG_PAIR' || d.facing !== 'small_bet') continue
+      expect(d.correct, `seed ${s}`).toBe('raise')
+      return
+    }
+    throw new Error('не знайшлось топ-пари проти малого c-bet')
+  })
+
+  it('агресор c-betить помітно частіше, ніж донкає пасивний опонент', () => {
+    // Герой OOP діє першим, тож c-bet видно лише ПІСЛЯ його чеку: або наступне
+    // рішення теж на флопі (агресор поставив), або роздача пішла на терн
+    // (чекнув слідом). Донк-частоти дали б тут ~0.1 — тест стереже, що на
+    // флопі лінії колера працює саме cbet-таблиця.
+    let flops = 0
+    let bets = 0
+    for (let s = 1; s <= 800; s++) {
+      const ep = startCaller(s)
+      const first = heroDecision(ep)
+      if (!first || first.ip || first.street !== 'flop' || first.facing !== 'none') continue
+      answerPost(ep, 'check', mulberry32(s + 500))
+      flops++
+      const next = heroDecision(ep)
+      if (next?.street === 'flop' && next.facing !== 'none') bets++
+    }
+    expect(flops, 'потрібні OOP-споти').toBeGreaterThan(20)
+    expect(bets / flops, `частка c-bet ${bets / flops}`).toBeGreaterThan(0.35)
+  })
+
+  it('роздача колера завжди доходить до термінала', () => {
+    for (let s = 1; s <= 300; s++) {
+      const ep = startCaller(s)
+      const rng = mulberry32(s + 10_000)
+      let guard = 0
+      while (!ep.finished && guard++ < 20) {
+        const d = heroDecision(ep)
+        if (!d) break
+        answerPost(ep, d.correct, rng)
+      }
+      expect(ep.finished, `seed ${s}`).not.toBeNull()
+    }
+  })
+})

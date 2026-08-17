@@ -21,10 +21,11 @@ import {
   type Facing,
   type PostAction,
   type PostCategory,
+  type PostLine,
   type Street,
   type Texture,
 } from './types'
-import { villainBetFraction, villainDonk, villainOpen, villainVsBet } from './villain'
+import { villainBetFraction, villainCbet, villainDonk, villainOpen, villainVsBet } from './villain'
 
 /** Ціна вище цієї частки банку вважається великою (спека §5). */
 const BIG_PRICE = 0.4
@@ -42,6 +43,8 @@ export interface PostActionOption {
 
 export interface HeroDecision {
   readonly street: Street
+  /** Роль героя в роздачі: від неї залежать §5.1а і §5.4. */
+  readonly line: PostLine
   readonly facing: Facing
   readonly cat: PostCategory
   readonly label: string
@@ -215,9 +218,19 @@ function villainAct(ep: EpisodeState, i: number, rng: Rng): void {
     return
   }
 
-  // Ставки немає. До дії героя це донк-бет, після — звичайна ставка у слабкість.
-  const heroActed = ep.acted.has(ep.heroIdx)
-  const move = heroActed ? villainOpen(cat, ep.street, rng) : villainDonk(cat, ep.street, rng)
+  // Ставки немає. У лінії колера єдиний опонент — префлоп-агресор: на флопі
+  // його ставка це c-bet (широкий, §6), а не донк, бо донк-частоти описують
+  // опонента, який агресором не був. На терні й рівері він барелить за
+  // bet-таблицею. У лінії агресора все як було: до дії героя — донк, після —
+  // звичайна ставка у слабкість.
+  const move =
+    ep.line === 'caller'
+      ? ep.street === 'flop'
+        ? villainCbet(cat, rng)
+        : villainOpen(cat, ep.street, rng)
+      : ep.acted.has(ep.heroIdx)
+        ? villainOpen(cat, ep.street, rng)
+        : villainDonk(cat, ep.street, rng)
   if (move === 'check') {
     ep.acted.add(i)
     ep.history.push(`${seat.pos} чекнув.`)
@@ -293,10 +306,15 @@ export function heroDecision(ep: EpisodeState): HeroDecision | null {
           ? 'big_bet'
           : 'small_bet'
 
+  // §5.4: у лінії колера будь-яка перша ставка на флопі і є c-bet агресора —
+  // інших опонентів у роздачі немає, а рейз веде в §5.6.
+  const vsCbet = ep.line === 'caller' && ep.street === 'flop' && !ep.raised
+
   const decision =
     facing === 'none'
       ? decideBet({
           street: ep.street,
+          line: ep.line,
           cat: ev.cat,
           texture: ep.texture,
           events,
@@ -311,10 +329,12 @@ export function heroDecision(ep: EpisodeState): HeroDecision | null {
           cat: ev.cat,
           nOpps,
           repeatAggro: ep.villainAggro > 1,
+          vsCbet,
         })
 
   return {
     street: ep.street,
+    line: ep.line,
     facing,
     cat: ev.cat,
     label: ev.label,
