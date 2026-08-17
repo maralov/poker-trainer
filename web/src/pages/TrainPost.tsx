@@ -5,7 +5,7 @@ import { PostBoard } from '../components/PostBoard'
 import { PostVerdict } from '../components/PostVerdict'
 import { StatStrip } from '../components/StatStrip'
 import { usePostSessionStore } from '../store/postSessionStore'
-import { useProgressStore } from '../store/progressStore'
+import { usePostStatsSource } from '../store/postStatsSource'
 
 const SCENARIO_ITEMS: readonly { key: 'rfi' | 'iso'; label: string }[] = [
   { key: 'rfi', label: 'Відкриття' },
@@ -13,7 +13,7 @@ const SCENARIO_ITEMS: readonly { key: 'rfi' | 'iso'; label: string }[] = [
 ]
 
 export function TrainPost() {
-  const post = useProgressStore((s) => s.post)
+  const post = usePostStatsSource().progress
 
   const episode = usePostSessionStore((s) => s.episode)
   const decision = usePostSessionStore((s) => s.decision)

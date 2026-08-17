@@ -9,18 +9,31 @@
  * черга: події, які ще не доїхали, після скидання не мають «воскреснути».
  */
 
+import { postQueue, usePostSyncStore } from '../api/postSync'
 import { deleteServerProgress, resetServerProgress } from '../api/serverProgress'
 import { flushNow, queue, useSyncStore } from '../api/sync'
 import { useAuthStore } from './authStore'
+import { usePostSessionStore } from './postSessionStore'
+import { useServerPostStats } from './postStatsSource'
 import { useProgressStore } from './progressStore'
 import { useSessionStore } from './sessionStore'
 import { useServerStats } from './statsSource'
 
 const clearLocal = (): void => {
+  // reset() чистить обидва розділи прогресу — і префлоп, і постфлоп.
   useProgressStore.getState().reset()
   queue.clear()
+  postQueue.clear()
   useSyncStore.setState({ pending: 0, queued: [] })
+  usePostSyncStore.setState({ pending: 0, queued: [] })
   useSessionStore.getState().resetSession()
+  // Поточна постфлоп-рука теж більше не має сенсу: роздаємо нову.
+  usePostSessionStore.getState().deal()
+}
+
+const refreshServer = async (): Promise<void> => {
+  await useServerStats.getState().refresh()
+  await useServerPostStats.getState().refresh()
 }
 
 /**
@@ -33,13 +46,14 @@ export async function resetProgress(): Promise<void> {
   const authed = useAuthStore.getState().session !== null
 
   if (authed) {
+    // flushNow() вивантажує обидві черги: sync.run() шле і постфлоп теж.
     await flushNow()
     await resetServerProgress()
   }
 
   clearLocal()
 
-  if (authed) await useServerStats.getState().refresh()
+  if (authed) await refreshServer()
 }
 
 /** Повне видалення: спроби стираються з бази назавжди. */
@@ -49,12 +63,14 @@ export async function deleteProgress(): Promise<number> {
   // Черга чиститься ДО видалення: інакше те, що в ній лежить, доїхало б
   // одразу після і відтворило частину «видаленої» історії.
   queue.clear()
+  postQueue.clear()
   useSyncStore.setState({ pending: 0, queued: [] })
+  usePostSyncStore.setState({ pending: 0, queued: [] })
 
   const removed = authed ? await deleteServerProgress() : 0
 
   clearLocal()
 
-  if (authed) await useServerStats.getState().refresh()
+  if (authed) await refreshServer()
   return removed
 }

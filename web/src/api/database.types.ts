@@ -208,6 +208,38 @@ export type Database = {
           scenario: string
         }[]
       }
+      postflop_mistakes: {
+        Args: { max_rows?: number }
+        Returns: {
+          answered_at: string
+          category: string
+          chosen: string
+          correct: string
+          facing: string
+          ip: boolean
+          n_opps: number
+          street: string
+          texture: string
+        }[]
+      }
+      postflop_summary: {
+        Args: never
+        Returns: {
+          best_streak: number
+          correct: number
+          reset_at: string
+          total: number
+        }[]
+      }
+      postflop_totals: {
+        Args: never
+        Returns: {
+          bucket: string
+          correct: number
+          dimension: string
+          played: number
+        }[]
+      }
       recent_attempts: {
         Args: { window_size?: number }
         Returns: {
