@@ -30,7 +30,9 @@ type CatFreq = Readonly<Record<CoarseCat, number>>
 export interface VillainProfile {
   /** Ставка, коли чекнуто до нього. */
   readonly bet: Readonly<Record<Street, Readonly<Record<PostCategory, number>>>>
-  /** Донк-бет OOP до дії героя. */
+  /** C-bet флопу — лише для опонента, який був префлоп-агресором. */
+  readonly cbet: Readonly<Record<PostCategory, number>>
+  /** Донк-бет OOP до дії героя. Лише для опонента, який агресором НЕ був. */
   readonly donk: CatFreq
   /** Рейз у відповідь на ставку героя: [мала, велика]. */
   readonly raise: Readonly<Record<CoarseCat, readonly [number, number]>>
@@ -45,6 +47,14 @@ const BET_TURN: CatFreq = { STRONG: 0.7, MEDIUM: 0.2, WEAK: 0.05, DRAW: 0.25, WE
 // На рівері дро не існують — рядки лишаються нулями заради повноти типу.
 const BET_RIVER: CatFreq = { STRONG: 0.75, MEDIUM: 0.25, WEAK: 0.05, DRAW: 0, WEAKDRAW: 0, AIR: 0.05 }
 
+/**
+ * C-bet префлоп-агресора на флопі. Окремий рядок, а не bet-таблиця: агресор
+ * мікрополя ставить флоп майже автоматично, і саме на цьому стоїть §5.4 —
+ * єдиний контекст, де у ставці опонента є повітря. Терн і рівер лишаються на
+ * bet: друга куля пасивного гравця вже означає силу («one and done»).
+ */
+const CBET_FLOP: CatFreq = { STRONG: 0.85, MEDIUM: 0.7, WEAK: 0.6, DRAW: 0.7, WEAKDRAW: 0.6, AIR: 0.55 }
+
 /** Розгортає коротку таблицю на всі сім категорій. */
 const expand = (f: CatFreq): Readonly<Record<PostCategory, number>> => ({
   STRONG_MADE: f.STRONG,
@@ -58,6 +68,7 @@ const expand = (f: CatFreq): Readonly<Record<PostCategory, number>> => ({
 
 export const VILLAIN: VillainProfile = {
   bet: { flop: expand(BET_FLOP), turn: expand(BET_TURN), river: expand(BET_RIVER) },
+  cbet: expand(CBET_FLOP),
   donk: { STRONG: 0.3, MEDIUM: 0, WEAK: 0, DRAW: 0.2, WEAKDRAW: 0, AIR: 0 },
   raise: {
     STRONG: [0.5, 0.4],
@@ -89,7 +100,15 @@ export function villainOpen(cat: PostCategory, street: Street, rng: Rng): 'check
   return rng() < VILLAIN.bet[street][cat] ? 'bet' : 'check'
 }
 
-/** Донк-бет: опонент OOP діє першим, до героя. */
+/**
+ * C-bet агресора: флоп лінії колера. Пізніші вулиці беруть звичайну
+ * bet-таблицю — другий барель у моделі вже означає силу.
+ */
+export function villainCbet(cat: PostCategory, rng: Rng): 'check' | 'bet' {
+  return rng() < VILLAIN.cbet[cat] ? 'bet' : 'check'
+}
+
+/** Донк-бет: опонент-НЕагресор OOP діє першим, до героя. */
 export function villainDonk(cat: PostCategory, street: Street, rng: Rng): 'check' | 'bet' {
   if (street === 'river' && (cat === 'DRAW' || cat === 'WEAKDRAW')) return 'check'
   return rng() < VILLAIN.donk[coarse(cat)] ? 'bet' : 'check'

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { mulberry32 } from '../../test/rng'
-import { VILLAIN, villainBetFraction, villainDonk, villainOpen, villainVsBet } from './villain'
+import { VILLAIN, villainBetFraction, villainCbet, villainDonk, villainOpen, villainVsBet } from './villain'
 import type { PostCategory, Street } from './types'
 
 /** Частка вибраної дії на великій вибірці — так перевіряються частоти. */
@@ -39,6 +39,37 @@ describe('villainOpen', () => {
   it('обидва підтипи STRONG поводяться однаково', () => {
     const made = share(4000, (r) => villainOpen('STRONG_MADE', 'flop', r), 'bet')
     const pair = share(4000, (r) => villainOpen('STRONG_PAIR', 'flop', r), 'bet')
+    expect(Math.abs(made - pair)).toBeLessThan(0.03)
+  })
+})
+
+describe('villainCbet', () => {
+  it('частоти c-bet збігаються зі спекою §6 ±0.03', () => {
+    const cases: [PostCategory, number][] = [
+      ['STRONG_MADE', 0.85],
+      ['DRAW', 0.7],
+      ['MEDIUM', 0.7],
+      ['WEAK', 0.6],
+      ['WEAKDRAW', 0.6],
+      ['AIR', 0.55],
+    ]
+    for (const [cat, want] of cases) {
+      const got = share(6000, (r) => villainCbet(cat, r), 'bet')
+      expect(Math.abs(got - want), `${cat}: ${got} vs ${want}`).toBeLessThan(0.03)
+    }
+  })
+
+  it('c-bet значно ширший за звичайну ставку — на цьому стоїть §5.4', () => {
+    for (const cat of ['AIR', 'WEAK', 'MEDIUM'] as PostCategory[]) {
+      const cbet = share(6000, (r) => villainCbet(cat, r), 'bet')
+      const open = share(6000, (r) => villainOpen(cat, 'flop', r), 'bet')
+      expect(cbet, `${cat}`).toBeGreaterThan(open + 0.3)
+    }
+  })
+
+  it('обидва підтипи STRONG c-betять однаково', () => {
+    const made = share(4000, (r) => villainCbet('STRONG_MADE', r), 'bet')
+    const pair = share(4000, (r) => villainCbet('STRONG_PAIR', r), 'bet')
     expect(Math.abs(made - pair)).toBeLessThan(0.03)
   })
 })
