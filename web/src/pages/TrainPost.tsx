@@ -46,7 +46,7 @@ export function TrainPost() {
       <div className="stage">
         {episode && (
           <>
-            <PostBoard episode={episode} />
+            <PostBoard episode={episode} frozen={feedback ? decision : null} />
 
             {decision && !feedback && (
               <div className="acts">

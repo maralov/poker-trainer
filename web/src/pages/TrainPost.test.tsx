@@ -57,6 +57,43 @@ describe('TrainPost', () => {
     expect(usePostSessionStore.getState().feedback).not.toBeNull()
   })
 
+  it('поки показано вердикт, стіл заморожений на моменті рішення', () => {
+    // Роздача випадкова, тож шукаємо саме той випадок, заради якого заморозка
+    // й існує: відповідь прокрутила роздачу на наступну вулицю. Без пошуку тест
+    // проходив би сам собою на роздачах, які завершились одразу.
+    for (let attempt = 0; attempt < 40; attempt++) {
+      usePostSessionStore.setState({ episode: null, decision: null, feedback: null, handOver: null })
+      const { container, unmount } = render(<TrainPost />)
+
+      const decision = usePostSessionStore.getState().decision
+      const button = container.querySelector('.act-btn')
+      if (!decision || !button) {
+        unmount()
+        continue
+      }
+      fireEvent.click(button)
+
+      const episode = usePostSessionStore.getState().episode
+      if (!episode || episode.board.length === decision.board.length) {
+        unmount()
+        continue
+      }
+
+      // Борд епізоду вже виріс — на екрані має лишатись дошка моменту рішення,
+      // інакше учень читає пояснення про флоп, дивлячись на терн.
+      expect(container.querySelectorAll('.cards')[0]?.children).toHaveLength(
+        decision.board.length,
+      )
+      expect(container.querySelectorAll('.cards')[0]?.children.length).toBeLessThan(
+        episode.board.length,
+      )
+      expect(screen.getByText(`${decision.potBB}bb`)).toBeInTheDocument()
+      unmount()
+      return
+    }
+    throw new Error('не трапилось роздачі, яка просунулась далі — перевір генератор')
+  })
+
   it('смужка цифр показує точність', () => {
     useProgressStore.setState({ post: { ...emptyPostProgress(), total: 4, correct: 3, best: 2 } })
     render(<TrainPost />)

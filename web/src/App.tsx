@@ -3,11 +3,12 @@ import { useState } from 'react'
 import { AccountBar } from './components/AccountBar'
 import { GateLock } from './components/GateLock'
 import { gateStatus } from './engine/gate'
-import { useTrainHotkeys } from './hooks/useHotkeys'
+import { usePostTrainHotkeys, useTrainHotkeys } from './hooks/useHotkeys'
 import { Ranges } from './pages/Ranges'
 import { Review } from './pages/Review'
 import { Stats } from './pages/Stats'
 import { Train } from './pages/Train'
+import { TrainPost } from './pages/TrainPost'
 import { useProgressStore } from './store/progressStore'
 import { useStatsSource } from './store/statsSource'
 
@@ -31,6 +32,7 @@ export default function App() {
   const dismissLegacyNotice = useProgressStore((s) => s.dismissLegacyNotice)
 
   useTrainHotkeys(stage === 'pre' && tab === 'train')
+  usePostTrainHotkeys(stage === 'post' && postUnlocked)
 
   const g = gateStatus(pre.recent, pre.total)
   const doneCount = [g.c1, g.c2, g.c3, g.c4].filter(Boolean).length
@@ -102,15 +104,7 @@ export default function App() {
           {tab === 'review' && <Review />}
         </>
       ) : postUnlocked ? (
-        <div className="panel">
-          <div className="lock-head">
-            <b>Етап 2 відкрито</b>
-            <span>
-              Префлоп закритий за всіма чотирма умовами. Сам постфлоп-тренажер зʼявиться окремим
-              кроком — до того часу тримай форму на префлопі.
-            </span>
-          </div>
-        </div>
+        <TrainPost />
       ) : (
         <GateLock />
       )}
