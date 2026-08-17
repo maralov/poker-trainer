@@ -6,11 +6,13 @@
  * спекою, §5.2 і §5.3.
  */
 
-import type { BoardEvents, PostAction, PostCategory, Street, Texture } from './types'
+import type { BoardEvents, PostAction, PostCategory, PostLine, Street, Texture } from './types'
 import { isStrong } from './types'
 
 export interface BetContext {
   readonly street: Street
+  /** Роль героя: у колера на флопі поза позицією донк-бетів немає (§5.1а). */
+  readonly line: PostLine
   readonly cat: PostCategory
   readonly texture: Texture
   readonly events: BoardEvents
@@ -32,6 +34,10 @@ const MULTI_DRAW_IP =
   'У позиції з сильним дро у мультипоті ставка виправдана: достатньо еквіті, а позиція дозволяє контролювати банк далі.'
 const MULTI_DRAW_OOP =
   'Сильне дро поза позицією в мультипоті — чек. Немає ні фолд-еквіті проти трьох, ні контролю над банком.'
+const CALLER_FLOP_CHECK: Decision = {
+  action: 'check',
+  why: 'Донк-бетів у моделі немає: поза позицією проти префлоп-агресора чекаємо. Він c-betить широко — далі граємо за матрицею захисту; а якщо чекне слідом, терн уже наш.',
+}
 const MULTI_NO_BLUFF =
   'Головне правило мультипоту: не блефувати. Коли на флопі троє і більше, хтось майже завжди має пару чи дро — твій блеф не має адресата.'
 
@@ -154,6 +160,9 @@ function decideMulti(c: BetContext): Decision {
 
 /** Єдиний вхід контексту «можу ставити». */
 export function decideBet(c: BetContext): Decision {
+  // §5.1а: колер OOP на флопі діє першим — і завжди чекає. Правило сильніше за
+  // решту матриці, тому стоїть перед мультивеєм (лінія колера завжди хедз-ап).
+  if (c.line === 'caller' && c.street === 'flop' && !c.ip) return CALLER_FLOP_CHECK
   if (c.nOpps >= 2) return decideMulti(c)
   if (c.street === 'flop')
     return {

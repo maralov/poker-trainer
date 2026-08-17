@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import refPostflop from '../__fixtures__/ref-postflop.json'
 import { decideBet } from './matrixBet'
-import type { BoardEvents, PostCategory, Texture } from './types'
+import { POST_CATEGORIES, type BoardEvents, type PostCategory, type Texture } from './types'
 
 interface RefCase {
   cat: string
@@ -17,6 +17,7 @@ const QUIET: BoardEvents = { flushClosed: false, boardPaired: false, overcard: f
 
 const ctx = (over: Partial<Parameters<typeof decideBet>[0]> = {}): Parameters<typeof decideBet>[0] => ({
   street: 'flop',
+  line: 'aggressor',
   cat: 'AIR',
   texture: 'DRY',
   events: QUIET,
@@ -112,5 +113,35 @@ describe('мультивей', () => {
     }
     expect(decideBet(ctx({ street: 'river', cat: 'STRONG_MADE', nOpps: 2 })).action).toBe('b66')
     expect(decideBet(ctx({ street: 'river', cat: 'MEDIUM', nOpps: 2 })).action).toBe('check')
+  })
+})
+
+describe('лінія колера · §5.1а', () => {
+  const caller = (over: Partial<Parameters<typeof decideBet>[0]> = {}) =>
+    decideBet(ctx({ line: 'caller', ...over }))
+
+  it('поза позицією на флопі колер чекає з будь-якою рукою — донків немає', () => {
+    for (const cat of POST_CATEGORIES) {
+      for (const texture of ['DRY', 'WET', 'PAIRED'] as Texture[]) {
+        const d = caller({ cat, texture, ip: false })
+        expect(d.action, `${cat}/${texture}`).toBe('check')
+        expect(d.why.length).toBeGreaterThan(20)
+      }
+    }
+  })
+
+  it('у позиції після чеку агресора діє звичайна флоп-матриця', () => {
+    expect(caller({ cat: 'STRONG_MADE', texture: 'WET', ip: true }).action).toBe('b66')
+    expect(caller({ cat: 'MEDIUM', texture: 'DRY', ip: true }).action).toBe('b33')
+    expect(caller({ cat: 'AIR', texture: 'DRY', ip: true }).action).toBe('b33')
+    expect(caller({ cat: 'AIR', texture: 'WET', ip: true }).action).toBe('check')
+  })
+
+  it('на терні й рівері лінія нічого не змінює — матриці спільні', () => {
+    for (const ip of [true, false]) {
+      expect(caller({ street: 'turn', cat: 'STRONG_MADE', ip }).action).toBe('b66')
+      expect(caller({ street: 'river', cat: 'STRONG_PAIR', ip }).action).toBe('b66')
+      expect(caller({ street: 'river', cat: 'AIR', ip }).action).toBe('check')
+    }
   })
 })
