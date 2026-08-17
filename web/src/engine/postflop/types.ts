@@ -40,6 +40,8 @@ export const POST_CATEGORIES = [
 
 export type Texture = 'DRY' | 'WET' | 'PAIRED'
 
+export const TEXTURES = ['DRY', 'WET', 'PAIRED'] as const
+
 /** Дія на постфлопі. Префлопний Action ('raise'|'call'|'fold') тут не годиться. */
 export type PostAction = 'check' | 'b33' | 'b66' | 'fold' | 'call' | 'raise'
 
@@ -90,6 +92,13 @@ export const POST_ACT_LABEL: Readonly<Record<PostAction, string>> = {
   b66: 'ставка 66%',
   fold: 'фолд',
   call: 'колл',
+  raise: 'рейз',
+}
+
+export const FACING_LABEL: Readonly<Record<Facing, string>> = {
+  none: 'ніхто не ставив',
+  small_bet: 'мала ставка (≤40% банку)',
+  big_bet: 'велика ставка (>40%)',
   raise: 'рейз',
 }
 
