@@ -26,6 +26,14 @@ export interface PostMistakeEntry {
   readonly ch: PostAction
   readonly co: PostAction
   readonly t: number
+  /**
+   * Знімок споту: роздача (`episode_id`), борд і канонічна рука. Опційні
+   * свідомо — журнали, які вже лежать у localStorage, цих полів не мають, і
+   * ламати їх заради нового екрана не варто.
+   */
+  readonly ep?: string
+  readonly board?: string
+  readonly hand?: string
 }
 
 export interface PostProgress {
