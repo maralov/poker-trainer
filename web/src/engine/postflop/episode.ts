@@ -7,7 +7,7 @@
  */
 
 import type { Card, Position } from '../types'
-import type { Street, Texture } from './types'
+import type { PostLine, PostScenario, Street, Texture } from './types'
 
 export interface EpisodeSeat {
   readonly pos: Position
@@ -43,8 +43,8 @@ export interface EpisodeState {
    * свій через BuildOptions.id.
    */
   readonly id: string
-  readonly line: 'aggressor' | 'caller'
-  readonly scenario: 'rfi' | 'iso' | 'vsraise'
+  readonly line: PostLine
+  readonly scenario: PostScenario
   readonly heroPos: Position
   readonly seats: EpisodeSeat[]
   /** Індекс героя в seats. */

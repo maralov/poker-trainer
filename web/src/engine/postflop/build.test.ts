@@ -133,6 +133,118 @@ describe('buildEpisode · rfi', () => {
   })
 })
 
+/** Шукає конкретний спот лінії колера серед сідів і перевіряє банк. */
+function expectPot(opener: string, hero: string, want: number): void {
+  for (let s = 1; s <= 8000; s++) {
+    const ep = buildEpisode({ scenario: 'vsraise', rng: mulberry32(s) })
+    if (ep.heroPos !== hero) continue
+    if (ep.seats.find((x) => !x.hero)?.pos !== opener) continue
+    expect(ep.potBB).toBe(want)
+    return
+  }
+  throw new Error(`не знайшлось споту ${opener} проти ${hero}`)
+}
+
+describe('buildEpisode · vsraise (лінія колера)', () => {
+  const callerSample = (n: number, seed = 1) =>
+    Array.from({ length: n }, (_, i) =>
+      buildEpisode({ scenario: 'vsraise', rng: mulberry32(seed + i) }),
+    )
+
+  it('епізод підписаний лінією колера', () => {
+    for (const ep of callerSample(50)) {
+      expect(ep.line).toBe('caller')
+      expect(ep.scenario).toBe('vsraise')
+    }
+  })
+
+  it('завжди хедз-ап: опонент один', () => {
+    for (const ep of callerSample(200, 300)) {
+      expect(ep.seats.filter((s) => !s.hero)).toHaveLength(1)
+    }
+  })
+
+  it('рука опенера з його RFI, рука героя — з чарта захисту проти цього бакета', () => {
+    for (const ep of callerSample(300, 700)) {
+      const opener = ep.seats.find((s) => !s.hero)
+      const hero = ep.seats[ep.heroIdx]
+      expect(opener).toBeDefined()
+      expect(hero).toBeDefined()
+      expect(RFI[opener!.pos]?.has(handOf(opener!.hole)), `опенер ${opener!.pos}`).toBe(true)
+      const range = VS_RAISE[BUCKET(opener!.pos)].call[HERO_CTX(ep.heroPos)]
+      expect(range.has(handOf(hero!.hole)), `${ep.heroPos} проти ${opener!.pos}`).toBe(true)
+    }
+  })
+
+  it('опенер завжди діє до героя за префлоп-порядком', () => {
+    for (const ep of callerSample(300, 1100)) {
+      const opener = ep.seats.find((s) => !s.hero)
+      expect(ACTION_ORDER.indexOf(opener!.pos), `${opener!.pos} до ${ep.heroPos}`).toBeLessThan(
+        ACTION_ORDER.indexOf(ep.heroPos),
+      )
+    }
+  })
+
+  it('ip рахується за постфлоп-порядком', () => {
+    for (const ep of callerSample(200, 1500)) {
+      const opener = ep.seats.find((s) => !s.hero)
+      const want =
+        POSTFLOP_ORDER.indexOf(ep.heroPos as (typeof POSTFLOP_ORDER)[number]) >
+        POSTFLOP_ORDER.indexOf(opener!.pos as (typeof POSTFLOP_ORDER)[number])
+      expect(ep.ip, `${ep.heroPos} проти ${opener!.pos}`).toBe(want)
+    }
+  })
+
+  it('карти ніде не повторюються', () => {
+    for (const ep of callerSample(200, 1900)) {
+      const all = [...ep.board, ...ep.seats.flatMap((s) => [...s.hole])].map(cardCode)
+      expect(new Set(all).size, `дублікат у ${all.join(' ')}`).toBe(all.length)
+    }
+  })
+
+  it('той самий seed дає той самий епізод', () => {
+    const a = buildEpisode({ scenario: 'vsraise', rng: mulberry32(77) })
+    const b = buildEpisode({ scenario: 'vsraise', rng: mulberry32(77) })
+    expect(a.heroPos).toBe(b.heroPos)
+    expect(a.board.map(cardCode)).toEqual(b.board.map(cardCode))
+  })
+
+  // Числа пораховані вручну: 3bb опен + 3bb колл + блайнди, які не поклали 3bb.
+  it('банк: CO відкрив, BTN заколлював → 7.5bb (обидва блайнди мертві)', () => {
+    expectPot('CO', 'BTN', 7.5)
+  })
+
+  it('банк: CO відкрив, BB заколлював → 6.5bb (блайнд BB уже в його 3bb)', () => {
+    expectPot('CO', 'BB', 6.5)
+  })
+
+  it('банк: CO відкрив, SB заколлював → 7bb (мертвий лише блайнд BB)', () => {
+    expectPot('CO', 'SB', 7)
+  })
+
+  it('стеки зменшені на префлоп-внесок', () => {
+    for (const ep of callerSample(100, 2500)) {
+      for (const seat of ep.seats) expect(seat.stack).toBe(BUILD.startStack - BUILD.openBB)
+    }
+  })
+
+  it('стрічка історії описує префлоп колера', () => {
+    const ep = buildEpisode({ scenario: 'vsraise', rng: mulberry32(31) })
+    expect(ep.history[0]).toMatch(/відкрив/)
+    expect(ep.history[0]).toMatch(/заколлював/)
+  })
+
+  it('частка епізодів із сильним опонентом близька до цільової', () => {
+    const eps = callerSample(1200, 4000)
+    const strong = eps.filter((ep) =>
+      ep.seats.some((s) => !s.hero && isStrong(evalHand(s.hole, ep.board).cat)),
+    ).length
+    const share = strong / eps.length
+    expect(share, `частка ${share}`).toBeGreaterThan(0.24)
+    expect(share, `частка ${share}`).toBeLessThan(0.37)
+  })
+})
+
 describe('buildEpisode · iso', () => {
   const isoSample = (n: number, seed = 1) =>
     Array.from({ length: n }, (_, i) => buildEpisode({ scenario: 'iso', rng: mulberry32(seed + i) }))

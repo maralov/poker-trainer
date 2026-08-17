@@ -13,7 +13,7 @@ import { ACTION_ORDER, POSTFLOP_ORDER, type Hand, type Position, type Rng } from
 import { drawCards, drawHand, makeDeck } from './deck'
 import type { EpisodeSeat, EpisodeState } from './episode'
 import { evalHand, texture } from './evaluate'
-import { isStrong } from './types'
+import { isStrong, type PostScenario } from './types'
 
 export const BUILD = {
   /** Ефективні стеки на початку роздачі, bb. */
@@ -30,7 +30,7 @@ export interface BuildOptions {
   readonly rng?: Rng
   readonly strongShare?: number
   readonly maxTries?: number
-  readonly scenario?: 'rfi' | 'iso'
+  readonly scenario?: PostScenario
   /**
    * Ідентифікатор роздачі для журналу. За замовчуванням — порожній рядок:
    * engine не тягне crypto заради одного uuid (правило 5), тож генерує його
@@ -68,8 +68,8 @@ function pickWeighted(range: ReadonlySet<Hand>, rng: Rng): Hand | null {
   return bag[Math.floor(rng() * bag.length)] ?? null
 }
 
-/** Одна спроба роздачі. null — не склалось (карт забракло), викликач пробує ще. */
-function dealOnce(scenario: 'rfi' | 'iso', rng: Rng, id: string): EpisodeState | null {
+/** Одна спроба роздачі агресора. null — не склалось, викликач пробує ще. */
+function dealAggressor(scenario: 'rfi' | 'iso', rng: Rng, id: string): EpisodeState | null {
   const heroPos = HERO_POSITIONS[Math.floor(rng() * HERO_POSITIONS.length)]
   if (heroPos === undefined) return null
 
@@ -177,6 +177,83 @@ function dealOnce(scenario: 'rfi' | 'iso', rng: Rng, id: string): EpisodeState |
     finished: null,
   }
 }
+
+/**
+ * Лінія колера (§3.1): опенер відкриває 3bb, герой заколлював — хедз-ап.
+ * Позиції героя — ті, що діють після опенера і мають непорожній call-діапазон
+ * проти його бакета: рука героя береться саме з того чарта, який тренує
+ * префлопний vsraise, тож спот міг реально виникнути з вивченого префлопу.
+ */
+function dealCaller(rng: Rng, id: string): EpisodeState | null {
+  const openerPos = HERO_POSITIONS[Math.floor(rng() * HERO_POSITIONS.length)]
+  if (openerPos === undefined) return null
+  const bucket = BUCKET(openerPos)
+
+  const pool = ACTION_ORDER.slice(ACTION_ORDER.indexOf(openerPos) + 1).filter(
+    (p) => VS_RAISE[bucket].call[HERO_CTX(p)].size > 0,
+  )
+  const heroPos = pool[Math.floor(rng() * pool.length)]
+  if (heroPos === undefined) return null
+
+  const deck = makeDeck()
+
+  const openerHand = pickWeighted(RFI[openerPos] ?? new Set<Hand>(), rng)
+  if (openerHand === null) return null
+  const openerHole = drawHand(deck, openerHand, rng)
+  if (openerHole === null) return null
+
+  const heroHand = pickWeighted(VS_RAISE[bucket].call[HERO_CTX(heroPos)], rng)
+  if (heroHand === null) return null
+  const heroHole = drawHand(deck, heroHand, rng)
+  if (heroHole === null) return null
+
+  const board = drawCards(deck, 3, rng)
+  if (board.length < 3) return null
+
+  const stack = BUILD.startStack - BUILD.openBB
+  const inHand: Position[] = [openerPos, heroPos]
+  const seats: EpisodeSeat[] = POSTFLOP_ORDER.filter((p) => inHand.includes(p)).map((pos) => ({
+    pos,
+    hole: pos === heroPos ? heroHole : openerHole,
+    hero: pos === heroPos,
+    stack,
+    put: 0,
+    folded: false,
+  }))
+
+  // Мертві блайнди — ті, що не поклали 3bb самі. Формула агресора вище — порт
+  // із референсу разом із його спрощенням (будь-який блайнд у роздачі → 0.5);
+  // для лінії колера референсу немає, тож рахуємо точно, інакше банк
+  // SB-колера з'їхав би на пів-блайнда.
+  const dead = (inHand.includes('SB') ? 0 : 0.5) + (inHand.includes('BB') ? 0 : 1)
+
+  return {
+    id,
+    line: 'caller',
+    scenario: 'vsraise',
+    heroPos,
+    seats,
+    heroIdx: seats.findIndex((s) => s.hero),
+    texture: texture(board).t,
+    ip: POSTFLOP_ORDER.indexOf(heroPos) > POSTFLOP_ORDER.indexOf(openerPos),
+    deck,
+    board,
+    street: 'flop',
+    potBB: Math.round((BUILD.openBB * 2 + dead) * 2) / 2,
+    bet: 0,
+    raised: false,
+    lastBetFraction: 0,
+    acted: new Set<number>(),
+    villainAggro: 0,
+    delayed: false,
+    streetHadBet: false,
+    history: [`${openerPos} відкрив ${BUILD.openBB}bb, ти заколлював з ${heroPos}.`],
+    finished: null,
+  }
+}
+
+const dealOnce = (scenario: PostScenario, rng: Rng, id: string): EpisodeState | null =>
+  scenario === 'vsraise' ? dealCaller(rng, id) : dealAggressor(scenario, rng, id)
 
 /**
  * Роздає епізод. Rejection sampling підтягує частку роздач, де опонент має

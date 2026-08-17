@@ -8,8 +8,11 @@
 export const STREETS = ['flop', 'turn', 'river'] as const
 export type Street = (typeof STREETS)[number]
 
-/** Роль героя в роздачі. У post-1 будується лише 'aggressor'. */
+/** Роль героя в роздачі. */
 export type PostLine = 'aggressor' | 'caller'
+
+/** Префлоп-сценарій, з якого виріс епізод. Той самий набір, що в схемі бази. */
+export type PostScenario = 'rfi' | 'iso' | 'vsraise'
 
 /**
  * Категорія руки. STRONG референсу розщеплений надвоє: у контекстах «проти
