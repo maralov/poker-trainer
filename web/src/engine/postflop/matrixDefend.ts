@@ -5,7 +5,8 @@
  * завжди означає силу. Тому «продовжувати» тут — виняток, а не норма, і
  * ключова межа проходить між двома парами (STRONG_MADE) і однією (STRONG_PAIR).
  *
- * §5.4 (лінія колера проти c-bet) — окремий контекст фази post-4.
+ * §5.4 (лінія колера проти c-bet) — окремий, ширший контекст: його вмикає
+ * прапорець `vsCbet`.
  */
 
 import type { Decision } from './matrixBet'
@@ -19,6 +20,12 @@ export interface DefendContext {
   readonly nOpps: number
   /** Опонент уже проявляв агресію раніше в цій руці — це друга куля. */
   readonly repeatAggro: boolean
+  /**
+   * Ставка префлоп-агресора на флопі (лінія колера) — контекст §5.4. Єдина
+   * ставка опонента, у діапазоні якої є повітря: агресор мікрополя c-betить
+   * широко. Прапорець ставить step.ts, матриця його лише читає.
+   */
+  readonly vsCbet: boolean
 }
 
 const FOLD_TRASH: Decision = {
@@ -81,6 +88,36 @@ const FOLD_MULTI: Decision = {
   why: 'Проти двох і більше опонентів хтось у полі майже завжди має справжню руку. Продовжують лише дві пари й краще, а одна пара — тільки проти першої дешевої ставки.',
 }
 
+const RAISE_CBET_TWO_PAIR: Decision = {
+  action: 'raise',
+  why: 'Агресор c-betить флоп майже автоматично, тож його ставка — ще не сила. Дві пари рейзять одразу і байдуже, скільки він поставив: банк треба будувати, поки поле платить.',
+}
+
+const RAISE_CBET_ONE_PAIR: Decision = {
+  action: 'raise',
+  why: 'Дешевий c-bet у широкому діапазоні платять гірші пари й повітря. Рейз топ-парою збирає з них валью зараз, а не сподівається на три вулиці коллів.',
+}
+
+const CALL_CBET_ONE_PAIR: Decision = {
+  action: 'call',
+  why: 'Велика ставка звужує його діапазон до валью. Одна пара тут колле, але банк не роздуває — саме на роздутому банку з однією парою мікроліміти віддають стеки.',
+}
+
+const FOLD_CBET_MEDIUM: Decision = {
+  action: 'fold',
+  why: 'Велика ставка навіть від широкого c-bet — це вже валью-діапазон. Середня рука проти нього не окупається.',
+}
+
+const FOLD_CBET_WEAK: Decision = {
+  action: 'fold',
+  why: 'Третя пара проти c-bet платить усю руку і виграє надто рідко. Дисциплінований фолд тут дешевший за «ну подивимось терн».',
+}
+
+const FOLD_CBET_AIR: Decision = {
+  action: 'fold',
+  why: 'C-bet справді широкий, але ловити його рукою без пари й без ціни на дро — найдорожча звичка мікролімітів: широкий діапазон опонента сам по собі еквіті не дає.',
+}
+
 function defendRaise(c: DefendContext): Decision {
   if (c.cat === 'STRONG_MADE') return CALL_TWO_PAIR
   if (c.cat === 'STRONG_PAIR') return c.street === 'flop' ? CALL_ONE_PAIR : FOLD_ONE_PAIR
@@ -114,9 +151,23 @@ function defendBet(c: DefendContext): Decision {
   return FOLD_TRASH
 }
 
-/** Рішення за хедз-ап-матрицями §5.5/§5.6 — незалежно від кількості опонентів. */
+/** §5.4 — c-bet агресора на флопі. Ціна: мала ≤40% банку, велика — далі. */
+function defendCbet(c: DefendContext): Decision {
+  const big = c.facing === 'big_bet'
+  if (c.cat === 'STRONG_MADE') return RAISE_CBET_TWO_PAIR
+  if (c.cat === 'STRONG_PAIR') return big ? CALL_CBET_ONE_PAIR : RAISE_CBET_ONE_PAIR
+  if (c.cat === 'DRAW') return CALL_DRAW
+  if (c.cat === 'MEDIUM') return big ? FOLD_CBET_MEDIUM : CALL_MEDIUM
+  if (c.cat === 'WEAK') return FOLD_CBET_WEAK
+  return FOLD_CBET_AIR
+}
+
+/** Рішення за хедз-ап-матрицями §5.4/§5.5/§5.6 — без кількості опонентів. */
 function baseDecision(c: DefendContext): Decision {
   if (c.facing === 'raise') return defendRaise(c)
+  // §5.4 перед §5.5: рейз лишається §5.6 (агресія пасивного = сила), а от перша
+  // ставка агресора на флопі — окремий, ширший контекст.
+  if (c.vsCbet) return defendCbet(c)
   if (c.street === 'river') return defendRiverBet(c)
   return defendBet(c)
 }

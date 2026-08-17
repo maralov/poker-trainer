@@ -9,6 +9,7 @@ const ctx = (over: Partial<Parameters<typeof decideDefend>[0]> = {}): Parameters
   cat: 'AIR',
   nOpps: 1,
   repeatAggro: false,
+  vsCbet: false,
   ...over,
 })
 
@@ -91,6 +92,60 @@ describe('мультивей-модифікатор', () => {
   })
 })
 
+describe('проти c-bet агресора · флоп · §5.4', () => {
+  const cbet = (over: Partial<Parameters<typeof decideDefend>[0]> = {}) =>
+    decideDefend(ctx({ vsCbet: true, ...over }))
+
+  it('дві пари й краще рейзять будь-який сайз — банк будуємо одразу', () => {
+    expect(cbet({ cat: 'STRONG_MADE', facing: 'small_bet' }).action).toBe('raise')
+    expect(cbet({ cat: 'STRONG_MADE', facing: 'big_bet' }).action).toBe('raise')
+  })
+
+  it('одна пара рейзить малу ставку, але проти великої лише колле', () => {
+    expect(cbet({ cat: 'STRONG_PAIR', facing: 'small_bet' }).action).toBe('raise')
+    expect(cbet({ cat: 'STRONG_PAIR', facing: 'big_bet' }).action).toBe('call')
+  })
+
+  it('дро колле обидва сайзи — ціна плюс імплайди', () => {
+    expect(cbet({ cat: 'DRAW', facing: 'small_bet' }).action).toBe('call')
+    expect(cbet({ cat: 'DRAW', facing: 'big_bet' }).action).toBe('call')
+  })
+
+  it('середня рука витримує дешевий c-bet, велику ставку — ні', () => {
+    expect(cbet({ cat: 'MEDIUM', facing: 'small_bet' }).action).toBe('call')
+    expect(cbet({ cat: 'MEDIUM', facing: 'big_bet' }).action).toBe('fold')
+  })
+
+  it('слабка пара, слабке дро й повітря фолдять навіть проти широкого c-bet', () => {
+    for (const cat of ['WEAK', 'WEAKDRAW', 'AIR'] as PostCategory[]) {
+      for (const facing of ['small_bet', 'big_bet'] as const) {
+        expect(cbet({ cat, facing }).action, `${cat} vs ${facing}`).toBe('fold')
+      }
+    }
+  })
+
+  // Саме тут §5.4 розходиться з §5.5 — тест стереже, що прапорець реально
+  // перемикає матрицю, а не просто передається далі.
+  it('без прапорця ті самі споти грають за §5.5', () => {
+    expect(decideDefend(ctx({ cat: 'STRONG_MADE', facing: 'big_bet' })).action).toBe('call')
+    expect(decideDefend(ctx({ cat: 'STRONG_PAIR', facing: 'small_bet' })).action).toBe('call')
+  })
+
+  it('рейз опонента лишається §5.6 навіть у лінії колера', () => {
+    expect(cbet({ cat: 'STRONG_PAIR', facing: 'raise', street: 'turn' }).action).toBe('fold')
+  })
+
+  it('кожна категорія має рішення з непорожнім поясненням', () => {
+    for (const cat of POST_CATEGORIES) {
+      for (const facing of ['small_bet', 'big_bet'] as const) {
+        const d = cbet({ cat, facing })
+        expect(['fold', 'call', 'raise'], `${cat}/${facing}`).toContain(d.action)
+        expect(d.why.length, `${cat}/${facing}`).toBeGreaterThan(20)
+      }
+    }
+  })
+})
+
 describe('інваріанти', () => {
   it('кожна досяжна комбінація має рішення з непорожнім поясненням', () => {
     for (const street of ['flop', 'turn', 'river'] as const) {
@@ -98,7 +153,7 @@ describe('інваріанти', () => {
         for (const cat of POST_CATEGORIES) {
           for (const nOpps of [1, 2]) {
             for (const repeatAggro of [false, true]) {
-              const d = decideDefend({ street, facing, cat, nOpps, repeatAggro })
+              const d = decideDefend({ street, facing, cat, nOpps, repeatAggro, vsCbet: false })
               expect(['fold', 'call', 'raise'], `${street}/${facing}/${cat}`).toContain(d.action)
               expect(d.why.length, `${street}/${facing}/${cat}`).toBeGreaterThan(20)
             }
@@ -112,7 +167,8 @@ describe('інваріанти', () => {
     for (const street of ['flop', 'turn', 'river'] as const) {
       for (const facing of ['small_bet', 'big_bet', 'raise'] as const) {
         expect(
-          decideDefend({ street, facing, cat: 'STRONG_MADE', nOpps: 1, repeatAggro: true }).action,
+          decideDefend({ street, facing, cat: 'STRONG_MADE', nOpps: 1, repeatAggro: true, vsCbet: false })
+            .action,
         ).not.toBe('fold')
       }
     }
@@ -121,9 +177,10 @@ describe('інваріанти', () => {
   it('порожня рука ніколи не колле ставку', () => {
     for (const street of ['flop', 'turn', 'river'] as const) {
       for (const facing of ['small_bet', 'big_bet', 'raise'] as const) {
-        expect(decideDefend({ street, facing, cat: 'AIR', nOpps: 1, repeatAggro: false }).action).toBe(
-          'fold',
-        )
+        expect(
+          decideDefend({ street, facing, cat: 'AIR', nOpps: 1, repeatAggro: false, vsCbet: false })
+            .action,
+        ).toBe('fold')
       }
     }
   })
