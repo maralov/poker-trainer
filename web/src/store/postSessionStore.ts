@@ -16,6 +16,7 @@ import {
   type EpisodeState,
   type HeroDecision,
   type PostAction,
+  type PostScenario,
 } from '../engine/postflop'
 import { useProgressStore } from './progressStore'
 
@@ -34,12 +35,12 @@ export interface PostSessionState {
   /** Роздача завершилась саме цією відповіддю. */
   handOver: EpisodeEnd | null
   streak: number
-  scenario: 'rfi' | 'iso'
+  scenario: PostScenario
 
   deal: () => void
   answer: (chosen: PostAction) => void
   continueHand: () => void
-  setScenario: (scenario: 'rfi' | 'iso') => void
+  setScenario: (scenario: PostScenario) => void
 }
 
 export const usePostSessionStore = create<PostSessionState>()((set, get) => ({

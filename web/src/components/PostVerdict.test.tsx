@@ -26,6 +26,7 @@ const cards = (codes: string): Card[] => codes.match(/.{2}/g)?.map(card) ?? []
 function makeDecision(overrides: Partial<HeroDecision> = {}): HeroDecision {
   return {
     street: 'flop',
+    line: 'aggressor',
     facing: 'none',
     cat: 'STRONG_MADE',
     label: 'топ-пара, сильний кікер',
@@ -91,6 +92,24 @@ describe('PostVerdict', () => {
     expect(screen.getByText(/дошка мокра/)).toBeInTheDocument()
     expect(screen.getByText('мультипот')).toBeInTheDocument()
     expect(screen.getByText('OOP')).toBeInTheDocument()
+  })
+
+  it('лінія роздачі підписана тегом', () => {
+    const { unmount } = render(
+      <PostVerdict decision={makeDecision()} ok={true} handOver={null} onNext={noop} />,
+    )
+    expect(screen.getByText('агресор')).toBeInTheDocument()
+    unmount()
+
+    render(
+      <PostVerdict
+        decision={makeDecision({ line: 'caller' })}
+        ok={true}
+        handOver={null}
+        onNext={noop}
+      />,
+    )
+    expect(screen.getByText('колер')).toBeInTheDocument()
   })
 
   it('хедз-ап і IP теж підписані тегами', () => {

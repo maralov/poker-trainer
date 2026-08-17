@@ -1,15 +1,18 @@
 import { useEffect } from 'react'
 
 import { Chips } from '../components/Chips'
+import type { PostScenario } from '../engine/postflop'
 import { PostBoard } from '../components/PostBoard'
 import { PostVerdict } from '../components/PostVerdict'
 import { StatStrip } from '../components/StatStrip'
 import { usePostSessionStore } from '../store/postSessionStore'
 import { usePostStatsSource } from '../store/postStatsSource'
 
-const SCENARIO_ITEMS: readonly { key: 'rfi' | 'iso'; label: string }[] = [
+const SCENARIO_ITEMS: readonly { key: PostScenario; label: string }[] = [
   { key: 'rfi', label: 'Відкриття' },
   { key: 'iso', label: 'Ізоляція' },
+  // Лінія колера: герой заколлював опен і грає постфлоп без ініціативи.
+  { key: 'vsraise', label: 'Проти рейзу' },
 ]
 
 export function TrainPost() {

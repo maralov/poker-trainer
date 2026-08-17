@@ -111,4 +111,13 @@ describe('TrainPost', () => {
 
     expect(usePostSessionStore.getState().scenario).toBe('iso')
   })
+
+  it('третій чіп перемикає на лінію колера', () => {
+    render(<TrainPost />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Проти рейзу' }))
+
+    expect(usePostSessionStore.getState().scenario).toBe('vsraise')
+    expect(usePostSessionStore.getState().episode?.line).toBe('caller')
+  })
 })

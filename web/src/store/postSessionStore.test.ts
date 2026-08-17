@@ -10,6 +10,7 @@
 
 import { beforeEach, describe, expect, it } from 'vitest'
 
+import { postQueue } from '../api/postSync'
 import { emptyPostProgress } from '../engine/postflop'
 import { emptyPreProgress } from '../engine/progress'
 import { usePostSessionStore } from './postSessionStore'
@@ -141,5 +142,22 @@ describe('usePostSessionStore', () => {
     expect(state.scenario).toBe('iso')
     expect(state.episode?.scenario).toBe('iso')
     expect(state.decision).not.toBeNull()
+  })
+
+  it("setScenario('vsraise') роздає лінію колера і пише її в журнал", () => {
+    usePostSessionStore.getState().setScenario('vsraise')
+    const episode = usePostSessionStore.getState().episode
+    expect(episode?.line).toBe('caller')
+    expect(episode?.scenario).toBe('vsraise')
+
+    const decision = usePostSessionStore.getState().decision
+    expect(decision).not.toBeNull()
+    if (!decision) return
+    usePostSessionStore.getState().answer(decision.correct)
+
+    // Журнал має знати лінію: без неї рішення колера й агресора не розрізнити.
+    const row = postQueue.peek().find((r) => r.episode_id === episode?.id)
+    expect(row?.line).toBe('caller')
+    expect(row?.scenario).toBe('vsraise')
   })
 })

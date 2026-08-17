@@ -29,6 +29,7 @@ export function PostVerdict({
 
       <div className="tags">
         <span className="tag hand">{decision.label}</span>
+        <span className="tag">{decision.line === 'caller' ? 'колер' : 'агресор'}</span>
         <span className="tag">{POST_CAT_LABEL[decision.cat]}</span>
         <span className="tag">дошка {TEX_LABEL[decision.texture]}</span>
         <span className="tag">{decision.nOpps >= 2 ? 'мультипот' : 'хедз-ап'}</span>
