@@ -78,8 +78,48 @@ export async function fetchServerPostProgress(): Promise<ServerPostProgress> {
       ch: r.chosen as PostAction,
       co: r.correct as PostAction,
       t: Date.parse(r.answered_at),
+      ep: r.episode_id,
+      board: r.board,
+      hand: r.hand,
     }),
   )
 
   return { progress: p, fetchedAt: Date.now(), resetAt }
+}
+
+/** Одне рішення роздачі — рядок розгорнутої руки в Розборі. */
+export interface EpisodeDecision {
+  readonly street: Street
+  readonly board: string
+  readonly hand: string
+  readonly hole: string
+  readonly cat: PostCategory
+  readonly facing: Facing
+  readonly potBB: number
+  readonly chosen: PostAction
+  readonly correct: PostAction
+  readonly ok: boolean
+}
+
+/**
+ * Роздача цілком, у порядку рішень. Тільки серверна: локальний буфер тримає
+ * лише помилки, тож відтворити з нього всю руку неможливо (і не треба —
+ * джерело істини журналу все одно база, правило 1 CLAUDE.md).
+ */
+export async function fetchEpisode(episodeId: string): Promise<EpisodeDecision[]> {
+  const { data, error } = await supabase.rpc('postflop_episode', { episode: episodeId })
+  if (error) throw new Error(error.message)
+
+  return (data ?? []).map((r) => ({
+    street: r.street as Street,
+    board: r.board,
+    hand: r.hand,
+    hole: r.hole,
+    cat: r.category as PostCategory,
+    facing: r.facing as Facing,
+    potBB: Number(r.pot_bb),
+    chosen: r.chosen as PostAction,
+    correct: r.correct as PostAction,
+    ok: r.is_correct,
+  }))
 }

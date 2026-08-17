@@ -229,3 +229,60 @@ describe('Обмеження цілісності', () => {
     expect(error).not.toBeNull()
   })
 })
+
+describe('postflop_episode', () => {
+  it('віддає всі рішення роздачі в порядку відповідей', async () => {
+    const episode = crypto.randomUUID()
+    await alice.client.from('postflop_attempts').insert([
+      decision({ episode_id: episode, street: 'flop', answered_at: '2026-08-01T10:00:00Z' }),
+      decision({
+        episode_id: episode,
+        street: 'turn',
+        board: 'Ks7d2c9h',
+        answered_at: '2026-08-01T10:00:30Z',
+      }),
+      decision({
+        episode_id: episode,
+        street: 'river',
+        board: 'Ks7d2c9hQs',
+        chosen: 'b66',
+        correct: 'check',
+        answered_at: '2026-08-01T10:01:00Z',
+      }),
+      // Чужа роздача того самого користувача не має протікати в цю.
+      decision({ street: 'flop' }),
+    ])
+
+    const { data, error } = await alice.client.rpc('postflop_episode', { episode })
+    expect(error).toBeNull()
+    expect(data?.map((r: { street: string }) => r.street)).toEqual(['flop', 'turn', 'river'])
+    expect(data?.[2]?.is_correct).toBe(false)
+    expect(data?.[2]?.board).toBe('Ks7d2c9hQs')
+  })
+
+  it('чужу роздачу не віддає — RLS діє і через функцію', async () => {
+    const episode = crypto.randomUUID()
+    await alice.client.from('postflop_attempts').insert(decision({ episode_id: episode }))
+
+    const { data, error } = await bob.client.rpc('postflop_episode', { episode })
+    expect(error).toBeNull()
+    expect(data).toEqual([])
+  })
+})
+
+describe('postflop_mistakes', () => {
+  it('віддає роздачу, борд і руку — без них розбір не покаже, що це була за рука', async () => {
+    const episode = crypto.randomUUID()
+    await alice.client.from('postflop_attempts').insert(
+      decision({ episode_id: episode, chosen: 'b66', correct: 'check', hand: 'QJs' }),
+    )
+
+    const { data, error } = await alice.client.rpc('postflop_mistakes', { max_rows: 10 })
+    expect(error).toBeNull()
+    expect(data).toHaveLength(1)
+    expect(data?.[0]?.episode_id).toBe(episode)
+    expect(data?.[0]?.board).toBe('Ks7d2c')
+    expect(data?.[0]?.hand).toBe('QJs')
+    expect(data?.[0]?.line).toBe('aggressor')
+  })
+})

@@ -208,15 +208,37 @@ export type Database = {
           scenario: string
         }[]
       }
-      postflop_mistakes: {
-        Args: { max_rows?: number }
+      postflop_episode: {
+        Args: { episode: string }
         Returns: {
           answered_at: string
+          board: string
           category: string
           chosen: string
           correct: string
           facing: string
+          hand: string
+          hole: string
+          is_correct: boolean
+          pot_bb: number
+          repeat_aggro: boolean
+          street: string
+          texture: string
+        }[]
+      }
+      postflop_mistakes: {
+        Args: { max_rows?: number }
+        Returns: {
+          answered_at: string
+          board: string
+          category: string
+          chosen: string
+          correct: string
+          episode_id: string
+          facing: string
+          hand: string
           ip: boolean
+          line: string
           n_opps: number
           street: string
           texture: string
