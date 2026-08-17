@@ -12,6 +12,9 @@ import type { Facing, PostAction, PostCategory, Street, Texture } from './types'
 
 export const POST_LOG_LIMIT = 500
 
+/** Від скількох рішень зріз уже щось означає — нижче підсвітка не фарбується. */
+export const POST_SLICE_MIN = 10
+
 export interface PostMistakeEntry {
   readonly street: Street
   readonly cat: PostCategory

@@ -5,6 +5,7 @@ import { GateLock } from './components/GateLock'
 import { gateStatus } from './engine/gate'
 import { usePostTrainHotkeys, useTrainHotkeys } from './hooks/useHotkeys'
 import { PostRules } from './pages/PostRules'
+import { PostStats } from './pages/PostStats'
 import { Ranges } from './pages/Ranges'
 import { Review } from './pages/Review'
 import { Stats } from './pages/Stats'
@@ -133,6 +134,7 @@ export default function App() {
 
           {postTab === 'train' && <TrainPost />}
           {postTab === 'rules' && <PostRules />}
+          {postTab === 'stats' && <PostStats />}
         </>
       ) : (
         <GateLock />
