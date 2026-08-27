@@ -74,6 +74,20 @@ function buildView(scen: Scenario, sub: string): View {
   }
 }
 
+/**
+ * Легенда описує рівно ті кольори, що є в сітці: пари в діапазоні дії
+ * малюються світлішим brass (`.cell.raise.pair`), решта — приглушеним,
+ * а зелений зʼявляється тільки там, де є колл-діапазон.
+ */
+function legendItems(action: string, hasCall: boolean): { color: string; label: string }[] {
+  return [
+    { color: 'var(--brass-dim)', label: action },
+    { color: 'var(--brass)', label: `${action} · пари` },
+    ...(hasCall ? [{ color: 'var(--green-dim)', label: 'Колл' }] : []),
+    { color: 'var(--panel2)', label: 'Фолд' },
+  ]
+}
+
 export function Ranges() {
   const [scen, setScen] = useState<Scenario>('rfi')
   const [sub, setSub] = useState<string>('BTN')
@@ -103,18 +117,12 @@ export function Ranges() {
         <Grid13 ranges={view.ranges} />
 
         <div className="legend">
-          <span>
-            <i style={{ background: 'var(--brass)' }} />
-            {view.legendLabel}
-          </span>
-          <span>
-            <i style={{ background: 'var(--green-dim)' }} />
-            Колл
-          </span>
-          <span>
-            <i style={{ background: 'var(--panel2)' }} />
-            Фолд
-          </span>
+          {legendItems(view.legendLabel, hasCall).map((it) => (
+            <span key={it.label}>
+              <i style={{ background: it.color }} />
+              {it.label}
+            </span>
+          ))}
         </div>
 
         <div className="range-head">
