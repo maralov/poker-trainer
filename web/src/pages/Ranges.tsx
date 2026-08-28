@@ -74,15 +74,19 @@ function buildView(scen: Scenario, sub: string): View {
   }
 }
 
+/** Свотч дії: два відтінки brass, бо саме ними сітка малює діапазон агресії. */
+const PAIR_SPLIT = 'linear-gradient(135deg, var(--brass) 0 50%, var(--brass-dim) 50% 100%)'
+
 /**
- * Легенда описує рівно ті кольори, що є в сітці: пари в діапазоні дії
- * малюються світлішим brass (`.cell.raise.pair`), решта — приглушеним,
- * а зелений зʼявляється тільки там, де є колл-діапазон.
+ * Легенда описує рівно ті кольори, що є в сітці. Діапазон агресії малюється
+ * двома відтінками brass (`.cell.raise` і світліший `.cell.raise.pair`), але
+ * дія в них одна — світліше лише позначає діагональ пар, тож це один пункт
+ * легенди з двоколірним свотчем, а не дві різні дії. Зелений зʼявляється
+ * тільки там, де є колл-діапазон.
  */
 function legendItems(action: string, hasCall: boolean): { color: string; label: string }[] {
   return [
-    { color: 'var(--brass-dim)', label: action },
-    { color: 'var(--brass)', label: `${action} · пари` },
+    { color: PAIR_SPLIT, label: action },
     ...(hasCall ? [{ color: 'var(--green-dim)', label: 'Колл' }] : []),
     { color: 'var(--panel2)', label: 'Фолд' },
   ]
@@ -123,6 +127,7 @@ export function Ranges() {
               {it.label}
             </span>
           ))}
+          <span className="legend-hint">світліший відтінок — орієнтир на діагональ пар, не окрема дія</span>
         </div>
 
         <div className="range-head">

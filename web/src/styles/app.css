@@ -772,6 +772,13 @@ h4:first-child {
   margin-right: 6px;
   vertical-align: -1px;
 }
+/* Підказка про світліший відтінок пар — не пункт легенди, а виноска до неї.
+   Підпорядкованість дає лише курсив: opacity опустила б контраст --muted на
+   --panel з 4.74:1 до 2.75:1, тобто нижче за AA для тексту 10px. */
+.legend-hint {
+  font-style: italic;
+  letter-spacing: 0.06em;
+}
 .range-head {
   display: flex;
   align-items: baseline;
