@@ -11,7 +11,7 @@ out.rfi = {}
 for (const p of ["UTG","UTG+1","MP","LJ","HJ","CO","BTN","SB"])
   out.rfi[p] = {n: RFI[p].size, pct: +pct(RFI[p]).toFixed(4), hands: sorted(RFI[p])}
 out.iso = {}
-for (const p of ["UTG","UTG+1","MP","LJ","HJ","CO","BTN","SB","BB"])
+for (const p of ["UTG","UTG+1","MP","LJ","HJ","CO","BTN","SB"])
   out.iso[p] = {n: ISO[p].size, pct: +pct(ISO[p]).toFixed(4), hands: sorted(ISO[p])}
 out.vsRaise = {}
 for (const b of ["EARLY","MID","LATE"]) {

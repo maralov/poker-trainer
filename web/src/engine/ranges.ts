@@ -135,22 +135,28 @@ export const WEAK_O = S(
   'ATo',
 )
 
+/**
+ * Позиції, з яких буває ізоляція лімперів. UTG відсутній — перед ним нікого
+ * немає; BB відсутній, бо проти самих лімперів там немає фолду: ти закриваєш
+ * торги і бачиш флоп безкоштовно, тож вибір «ізо-рейз або фолд» не існує.
+ */
+export const ISO_ORDER = ['UTG', 'UTG+1', 'MP', 'LJ', 'HJ', 'CO', 'BTN', 'SB'] as const
+export type IsoPosition = (typeof ISO_ORDER)[number]
+export const isIsoPosition = (p: Position): p is IsoPosition => p !== 'BB'
+
 /** Діапазони ізоляції лімперів = RFI мінус слабкі офсьюти. */
 export const ISO: Readonly<Record<string, ReadonlySet<Hand>>> = (() => {
   const table: Record<string, Set<Hand>> = {}
-  for (const p of ['UTG', 'UTG+1', 'MP', 'LJ', 'HJ', 'CO', 'BTN', 'SB']) {
+  for (const p of ISO_ORDER) {
     const base = RFI[p]
     if (base === undefined) throw new Error(`RFI["${p}"] missing`)
     table[p] = minus(base, WEAK_O)
   }
-  const sb = table['SB']
-  if (sb === undefined) throw new Error('ISO["SB"] not built')
-  table['BB'] = sb
   return table
 })()
 
 /** Проти двох лімперів звужуємось на дві позиції. */
-export const TIGHTER2: Readonly<Record<Position, Position>> = {
+export const TIGHTER2: Readonly<Record<IsoPosition, Position>> = {
   UTG: 'UTG',
   'UTG+1': 'UTG',
   MP: 'UTG',
@@ -159,7 +165,6 @@ export const TIGHTER2: Readonly<Record<Position, Position>> = {
   CO: 'LJ',
   BTN: 'HJ',
   SB: 'CO',
-  BB: 'CO',
 }
 
 export type RaiserBucket = 'EARLY' | 'MID' | 'LATE'
@@ -173,7 +178,7 @@ interface VsRaiseDef {
   readonly note: string
 }
 
-export const VS_RAISE: Readonly<Record<RaiserBucket, VsRaiseDef>> = {
+const VS_RAISE_RAW: Readonly<Record<RaiserBucket, VsRaiseDef>> = {
   EARLY: {
     label: 'ранньої позиції (UTG–MP)',
     raise: S('QQ+', 'AKs', 'AKo'),
@@ -214,7 +219,7 @@ export const VS_RAISE: Readonly<Record<RaiserBucket, VsRaiseDef>> = {
     raise: S('99+', 'AJs+', 'KQs', 'AQo+', 'A4s-A5s'),
     call: {
       POS: S('22-88', 'A7s-ATs', 'KJs', 'QJs', 'JTs', 'T9s', 'AJo', 'KQo'),
-      SB: S('66-88', 'ATs', 'KQs'),
+      SB: S('66-88', 'ATs'),
       BB: S(
         '22-88',
         'A2s-ATs',
@@ -236,6 +241,27 @@ export const VS_RAISE: Readonly<Record<RaiserBucket, VsRaiseDef>> = {
     },
     note: 'Найширший діапазон опенера за столом. З BB захищайся широко — ти вже вклав блайнд і закриваєш торги. З SB навпаки: 3-бет або фолд.',
   },
+}
+
+/**
+ * Колл описаний широкими токенами (`A2s-ATs`, `K7s+`), які захоплюють руки з
+ * рейзу. Оцінка перевіряє рейз першим, тож така рука мовчки ставала рейзом,
+ * а таблиця показувала її як колл — і відсотки в шапці не сходились із сумою.
+ * Віднімаємо рейз від коллу один раз тут, щоб перетин не міг зʼявитися знову.
+ */
+const disjoint = (def: VsRaiseDef): VsRaiseDef => ({
+  ...def,
+  call: {
+    POS: minus(def.call.POS, def.raise),
+    SB: minus(def.call.SB, def.raise),
+    BB: minus(def.call.BB, def.raise),
+  },
+})
+
+export const VS_RAISE: Readonly<Record<RaiserBucket, VsRaiseDef>> = {
+  EARLY: disjoint(VS_RAISE_RAW.EARLY),
+  MID: disjoint(VS_RAISE_RAW.MID),
+  LATE: disjoint(VS_RAISE_RAW.LATE),
 }
 
 export const VS_3BET = {

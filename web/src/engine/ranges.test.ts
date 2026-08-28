@@ -113,10 +113,8 @@ describe('ISO', () => {
     }
   })
 
-  it('BB дублює SB', () => {
-    expect(sorted(ISO['BB'] as ReadonlySet<string>)).toEqual(
-      sorted(ISO['SB'] as ReadonlySet<string>),
-    )
+  it('BB відсутній: проти самих лімперів на BB не буває фолду', () => {
+    expect(ISO['BB']).toBeUndefined()
   })
 })
 
@@ -127,6 +125,26 @@ describe('VS_RAISE', () => {
       expect(sorted(def.raise), `${bucket}.raise`).toEqual(expected.raise)
       for (const [ctx, exp] of Object.entries(expected.call)) {
         expect(sorted(def.call[ctx as HeroContext]), `${bucket}.call.${ctx}`).toEqual(exp.hands)
+      }
+    }
+  })
+
+  it('жодна рука не лежить водночас у рейзі й у коллі', () => {
+    for (const bucket of ['EARLY', 'MID', 'LATE'] as const) {
+      const def = VS_RAISE[bucket]
+      for (const ctx of ['POS', 'SB', 'BB'] as const) {
+        const both = [...def.call[ctx]].filter((h) => def.raise.has(h))
+        expect(both, `${bucket}.call.${ctx} перетинається з рейзом`).toEqual([])
+      }
+    }
+  })
+
+  it('відсотки в шапці сходяться: рейз + колл дорівнює сумарному', () => {
+    for (const bucket of ['EARLY', 'MID', 'LATE'] as const) {
+      const def = VS_RAISE[bucket]
+      for (const ctx of ['POS', 'SB', 'BB'] as const) {
+        const total = pct(union(def.raise, def.call[ctx]))
+        expect(total, `${bucket}·${ctx}`).toBeCloseTo(pct(def.raise) + pct(def.call[ctx]), 6)
       }
     }
   })

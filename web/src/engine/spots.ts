@@ -16,6 +16,7 @@ import {
   TIGHTER2,
   VS_3BET,
   VS_RAISE,
+  isIsoPosition,
   isoRange,
   positionAt,
   rfiRange,
@@ -119,8 +120,14 @@ function buildRfi(force: ForceSpot | undefined, rng: Rng): ScenarioShape {
 
 function buildIso(force: ForceSpot | undefined, rng: Rng): ScenarioShape {
   // hi ≥ 1: на UTG перед тобою нікого немає, лімпувати нікому.
-  const hi = force ? Math.max(1, ACTION_ORDER.indexOf(force.heroPos)) : 1 + Math.floor(rng() * 8)
+  // Верхня межа — SB (індекс 7): на BB проти самих лімперів фолду немає,
+  // ти закриваєш торги і бачиш флоп безкоштовно. Форсований спот із BB
+  // (стара помилка з журналу) підтягується до SB — діапазон там був той самий.
+  const hi = force
+    ? Math.min(7, Math.max(1, ACTION_ORDER.indexOf(force.heroPos)))
+    : 1 + Math.floor(rng() * 7)
   const heroPos = positionAt(hi)
+  if (!isIsoPosition(heroPos)) throw new Error(`ізоляція не буває з ${heroPos}`)
   const before = ACTION_ORDER.slice(0, hi)
   const nLimp = rng() < 0.55 ? 1 : 2
 

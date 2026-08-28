@@ -10,7 +10,7 @@ import { describe, expect, it } from 'vitest'
 
 import { mulberry32, rangeSig } from '../test/rng'
 import refSpots from './__fixtures__/ref-spots.json'
-import { ISO, RFI, TIGHTER2, VS_3BET, VS_RAISE } from './ranges'
+import { ISO, RFI, TIGHTER2, VS_3BET, VS_RAISE, type IsoPosition } from './ranges'
 import { buildSpot } from './spots'
 import { ACTION_ORDER, SCENARIO_KEYS, type Position, type Scenario, type Spot } from './types'
 
@@ -140,6 +140,10 @@ describe('інваріанти споту', () => {
     }
   })
 
+  it('iso: героєм ніколи не буває BB — там немає фолду, є безкоштовний чек', () => {
+    for (const q of sample('iso')) expect(q.heroPos).not.toBe('BB')
+  })
+
   it('iso: 1–2 лімпери, банк росте з кожним, проти двох діапазон звужується', () => {
     let sawTwo = false
     for (const q of sample('iso')) {
@@ -154,7 +158,8 @@ describe('інваріанти споту', () => {
       for (const p of limpers) expect(ACTION_ORDER.indexOf(p)).toBeLessThan(hi)
       if (limpers.length === 2) {
         sawTwo = true
-        expect(q.ranges.raise).toBe(ISO[TIGHTER2[q.heroPos]])
+        expect(q.heroPos).not.toBe('BB')
+        expect(q.ranges.raise).toBe(ISO[TIGHTER2[q.heroPos as IsoPosition]])
       } else {
         expect(q.ranges.raise).toBe(ISO[q.heroPos])
       }

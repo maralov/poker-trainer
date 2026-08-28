@@ -427,10 +427,9 @@ const RFI={};
 const WEAK_O=S("A2o-A9o","K8o-K9o","KTo","Q9o","QTo","J9o","JTo","T9o","98o","ATo");
 const ISO={};
 ["UTG","UTG+1","MP","LJ","HJ","CO","BTN","SB"].forEach(p=>ISO[p]=minus(RFI[p],WEAK_O));
-ISO["BB"]=ISO["SB"];
-const TIGHTER2={"UTG":"UTG","UTG+1":"UTG","MP":"UTG","LJ":"UTG+1","HJ":"MP","CO":"LJ","BTN":"HJ","SB":"CO","BB":"CO"};
+const TIGHTER2={"UTG":"UTG","UTG+1":"UTG","MP":"UTG","LJ":"UTG+1","HJ":"MP","CO":"LJ","BTN":"HJ","SB":"CO"};
 
-const VS_RAISE={
+const VS_RAISE=(()=>{const T={
   EARLY:{label:"ранньої позиції (UTG–MP)",raise:S("QQ+","AKs","AKo"),
     call:{POS:S("22-JJ","AQs","AJs","KQs","QJs","JTs"),SB:S("88-JJ","AQs","AJs","KQs"),
           BB:S("22-JJ","AQs","AJs","ATs","KQs","KJs","QJs","JTs","AQo")},
@@ -440,11 +439,17 @@ const VS_RAISE={
           BB:S("22-99","A2s-ATs","KTs+","Q9s+","J9s+","T9s","98s","87s","ATo","AJo","KQo","KJo","QJo","JTo")},
     note:"Діапазон опенера вже ширший, тому 3-бетиш валью-руками, які б'ють його калл-діапазон. AJs і TT тут — рейз, а не колл."},
   LATE:{label:"BTN або SB (стіл-рейз)",raise:S("99+","AJs+","KQs","AQo+","A4s-A5s"),
-    call:{POS:S("22-88","A7s-ATs","KJs","QJs","JTs","T9s","AJo","KQo"),SB:S("66-88","ATs","KQs"),
+    call:{POS:S("22-88","A7s-ATs","KJs","QJs","JTs","T9s","AJo","KQo"),SB:S("66-88","ATs"),
           BB:S("22-88","A2s-ATs","K7s+","Q8s+","J8s+","T8s+","97s+","86s+","75s+","65s","54s",
                "A8o-AJo","KTo+","QTo+","JTo","T9o")},
     note:"Найширший діапазон опенера за столом. З BB захищайся широко — ти вже вклав блайнд і закриваєш торги. З SB навпаки: 3-бет або фолд."}
 };
+  // Колл описаний широкими токенами ("A2s-ATs", "K7s+"), які захоплюють руки
+  // з рейзу. Оцінка перевіряє рейз першим, тож така рука мовчки ставала
+  // рейзом, а таблиця показувала її як колл. Віднімаємо один раз тут.
+  for(const b of Object.keys(T)) for(const c of Object.keys(T[b].call))
+    T[b].call[c]=minus(T[b].call[c],T[b].raise);
+  return T;})();
 const VS_3BET={raise:S("KK+","AKs"),call:S("TT-QQ","AKo","AQs"),
   note:"На 5/10 3-бет майже завжди означає реальну руку. Це той спот, де дисциплінований фолд коштує дешевше за будь-яку креативність."};
 
@@ -621,7 +626,7 @@ function preBuildSpot(force){
     options=[{k:"raise",l:"Рейз 3bb",c:"primary"},{k:"fold",l:"Фолд",c:"ghost"}];
     prompt="Усі перед тобою скинули. Твій хід."; potBB=1.5; explainExtra=NOTES[heroPos];
   } else if(scen==="iso"){
-    const hi=force?Math.max(1,ACTION_ORDER.indexOf(force.heroPos)):1+Math.floor(Math.random()*8);
+    const hi=force?Math.min(7,Math.max(1,ACTION_ORDER.indexOf(force.heroPos))):1+Math.floor(Math.random()*7);
     heroPos=ACTION_ORDER[hi];
     const before=ACTION_ORDER.slice(0,hi);
     const nLimp=Math.random()<0.55?1:2;
@@ -857,7 +862,7 @@ function preRenderStatsTab(){
 /* ---- вкладка діапазонів ---- */
 let rgScen="rfi",rgSub="BTN";
 const RG_SUBS={rfi:["UTG","UTG+1","MP","LJ","HJ","CO","BTN","SB"],
-  iso:["UTG+1","MP","LJ","HJ","CO","BTN","SB","BB"],
+  iso:["UTG+1","MP","LJ","HJ","CO","BTN","SB"],
   vsraise:["EARLY·POS","EARLY·BB","MID·POS","MID·BB","LATE·POS","LATE·SB","LATE·BB"],
   vs3bet:["Загальне правило"]};
 function renderRangesTab(){

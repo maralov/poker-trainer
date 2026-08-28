@@ -14,6 +14,7 @@ import {
   VS_3BET,
   VS_RAISE,
   type HeroContext,
+  type IsoPosition,
   type RaiserBucket,
 } from '../engine/ranges'
 import {
@@ -26,7 +27,7 @@ import {
 
 const SUBS: Readonly<Record<Scenario, readonly string[]>> = {
   rfi: ['UTG', 'UTG+1', 'MP', 'LJ', 'HJ', 'CO', 'BTN', 'SB'],
-  iso: ['UTG+1', 'MP', 'LJ', 'HJ', 'CO', 'BTN', 'SB', 'BB'],
+  iso: ['UTG+1', 'MP', 'LJ', 'HJ', 'CO', 'BTN', 'SB'],
   vsraise: ['EARLY·POS', 'EARLY·BB', 'MID·POS', 'MID·BB', 'LATE·POS', 'LATE·SB', 'LATE·BB'],
   vs3bet: ['Загальне правило'],
 }
@@ -49,7 +50,7 @@ function buildView(scen: Scenario, sub: string): View {
     }
   }
   if (scen === 'iso') {
-    const pos = sub as Position
+    const pos = sub as IsoPosition
     return {
       ranges: { raise: ISO[pos] ?? EMPTY, call: EMPTY },
       legendLabel: 'Ізо-рейз',

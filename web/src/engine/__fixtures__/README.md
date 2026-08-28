@@ -13,7 +13,7 @@
 python3 - <<'PY'
 import pathlib
 lines = pathlib.Path('poker-trainer.html').read_text(encoding='utf-8').split('\n')
-pathlib.Path('/tmp/ref-core.js').write_text('\n'.join(lines[370:397] + lines[410:470]), encoding='utf-8')
+pathlib.Path('/tmp/ref-core.js').write_text('\n'.join(lines[370:397] + lines[410:474]), encoding='utf-8')
 PY
 node web/src/engine/__fixtures__/dump.mjs /tmp/ref-core.js web/src/engine/__fixtures__/ref-truth.json
 ```
