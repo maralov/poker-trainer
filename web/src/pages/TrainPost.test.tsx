@@ -5,7 +5,7 @@
  */
 
 import { fireEvent, render, screen } from '@testing-library/react'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { emptyPostProgress } from '../engine/postflop'
 import { emptyPreProgress } from '../engine/progress'
@@ -119,5 +119,48 @@ describe('TrainPost', () => {
 
     expect(usePostSessionStore.getState().scenario).toBe('vsraise')
     expect(usePostSessionStore.getState().episode?.line).toBe('caller')
+  })
+
+  /*
+   * Прокрутка до вердикту (useScrollToResult) — те, заради чого на вузькому
+   * екрані не доводиться гортати після кожної відповіді. У коді її не видно,
+   * тому геометрію підставляємо вручну: jsdom не рахує розкладку.
+   */
+  describe('прокрутка до вердикту', () => {
+    const stubGeometry = (top: number, bottom: number) => {
+      const scrollIntoView = vi.fn()
+      Object.defineProperty(Element.prototype, 'scrollIntoView', {
+        value: scrollIntoView,
+        configurable: true,
+      })
+      vi.spyOn(Element.prototype, 'getBoundingClientRect').mockReturnValue({
+        top,
+        bottom,
+      } as DOMRect)
+      return scrollIntoView
+    }
+
+    afterEach(() => {
+      vi.restoreAllMocks()
+      Reflect.deleteProperty(Element.prototype, 'scrollIntoView')
+    })
+
+    it('вердикт нижче згину — прокручуємо', () => {
+      const scrollIntoView = stubGeometry(600, window.innerHeight + 300)
+      const { container } = render(<TrainPost />)
+
+      fireEvent.click(container.querySelector('.act-btn') as HTMLElement)
+
+      expect(scrollIntoView).toHaveBeenCalled()
+    })
+
+    it('вердикт і так на екрані — не смикаємо', () => {
+      const scrollIntoView = stubGeometry(100, window.innerHeight - 100)
+      const { container } = render(<TrainPost />)
+
+      fireEvent.click(container.querySelector('.act-btn') as HTMLElement)
+
+      expect(scrollIntoView).not.toHaveBeenCalled()
+    })
   })
 })

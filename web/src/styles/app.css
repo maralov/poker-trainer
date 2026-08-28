@@ -482,6 +482,10 @@ h4:first-child {
 .cards.flop {
   margin-bottom: 22px;
 }
+/* Підпис під картами борду — інакше «Твої карти» злипається з ними. */
+.cards + .board-lbl {
+  margin-top: 16px;
+}
 .board-lbl {
   text-align: center;
   font-family: 'IBM Plex Mono', monospace;
@@ -712,7 +716,7 @@ h4:first-child {
 /* ---- grid ---- */
 .grid {
   display: grid;
-  grid-template-columns: repeat(13, 1fr);
+  grid-template-columns: repeat(13, minmax(0, 1fr));
   gap: 2px;
 }
 .grid.compact {
@@ -1139,4 +1143,247 @@ td.m {
 .gbtn:hover {
   border-color: var(--brass);
   color: var(--brass);
+}
+
+/* ---- екран рішення ---- */
+/*
+ * Раніше все стояло однією колонкою, і вердикт із сіткою 13×13 щоразу виїжджав
+ * під згин: після кожної відповіді доводилось гортати вниз по розбір, а потім
+ * назад угору по наступну руку. На десктопі колонки стоять поруч, і цикл
+ * «рука → вибір → розбір» вміщається в одне вікно. На вузьких екранах вони
+ * лягають одна під одну — порядок у розмітці саме той, у якому це читають.
+ */
+.duel {
+  display: grid;
+}
+/* Прокрутка до вердикту (useScrollToResult) не має впиратись у край вікна. */
+.duel-side {
+  scroll-margin-top: 12px;
+}
+/* Відступи смужок — не інлайном, бо в режимі «одне вікно» вони інші. */
+.duel-board > .strip {
+  margin-bottom: 20px;
+}
+.stage + .strip {
+  margin-top: 18px;
+}
+.head .account {
+  margin-bottom: 0;
+}
+
+@media (min-width: 1000px) {
+  .wrap.fit {
+    max-width: 1080px;
+  }
+  /*
+   * У режимі «одне вікно» ширина стола йде за висотою, тож фіксовані 78px сіта
+   * на низькому вікні перекривали б одне одного. Тут стіл сам собі контейнер:
+   * сіти й банк рахуються від його ширини, верхня межа — розміри з референсу.
+   * На мобільному лишаються фіксовані розміри: там стіл завжди на всю ширину.
+   */
+  .felt-wrap {
+    container-type: inline-size;
+  }
+  .seat {
+    width: min(78px, 13cqw);
+  }
+  .seat .lbl {
+    font-size: min(11px, 2.3cqw);
+    padding: min(4px, 0.7cqw) 0;
+  }
+  .seat .act {
+    font-size: min(9.5px, 1.95cqw);
+    height: min(13px, 2.2cqw);
+    margin-top: min(4px, 0.7cqw);
+  }
+  .seat .btn-chip {
+    width: min(17px, 2.8cqw);
+    height: min(17px, 2.8cqw);
+    line-height: min(17px, 2.8cqw);
+    font-size: min(9px, 1.5cqw);
+  }
+  .pot {
+    font-size: min(11px, 2.2cqw);
+  }
+  .pot b {
+    font-size: min(22px, 3.7cqw);
+  }
+  /* Те саме для сітки: підпис клітинки міряється її ж шириною. */
+  .duel .grid.compact {
+    container-type: inline-size;
+  }
+  .duel .grid.compact .cell {
+    font-size: min(10px, 2.9cqi);
+  }
+  /* Коли сітка зовсім мала (низьке вікно), підпис перетворюється на пляму —
+     краще чиста заливка: колір і підсвітка руки читаються й без нього. */
+  @container (max-width: 250px) {
+    .duel .grid.compact .cell {
+      color: transparent;
+    }
+    .duel .grid.compact .cell.hi {
+      outline-color: var(--ivory);
+    }
+  }
+  .duel {
+    grid-template-columns: minmax(0, 1fr) minmax(300px, 350px);
+    gap: 22px;
+  }
+  .duel-board,
+  .duel-side {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-height: 0;
+  }
+  .duel-side {
+    border-left: 1px solid var(--line);
+    padding-left: 22px;
+  }
+  /* Колонку вже відділяє лінія — верхня рамка вердикту тут зайва. */
+  .duel .verdict {
+    margin-top: 0;
+    border-top: 0;
+    padding-top: 0;
+  }
+  /* Чотири дії в рядок у вузькій колонці не стають — ставимо стовпчиком. */
+  .duel .acts {
+    margin-top: 0;
+    flex-direction: column;
+  }
+  .duel .act-btn {
+    flex: 0 0 auto;
+    width: 100%;
+    max-width: none;
+  }
+  .duel .prompt {
+    margin-top: 14px;
+  }
+  .duel-board > .strip {
+    margin-bottom: 16px;
+  }
+
+  /*
+   * Щільніший хром: заголовок, перемикачі й смужки віддають висоту столу та
+   * сітці — заради цього все й затівалось. Правила не звужені до `.fit`, щоб
+   * шапка не стрибала в розмірі при перемиканні вкладок.
+   */
+  h1 {
+    font-size: 26px;
+  }
+  .sub {
+    margin-top: 5px;
+  }
+  .head {
+    padding-bottom: 10px;
+    margin-bottom: 10px;
+  }
+  .stages {
+    padding-bottom: 12px;
+    margin-bottom: 12px;
+  }
+  .stg {
+    padding: 8px 13px;
+  }
+  .stg b {
+    font-size: 16px;
+  }
+  .stg span {
+    margin-top: 5px;
+  }
+  .tabs {
+    margin-bottom: 12px;
+  }
+  .tab {
+    padding: 7px 13px;
+  }
+  .chips {
+    margin-bottom: 10px;
+  }
+  .chip {
+    padding: 7px 12px;
+  }
+  .drill {
+    padding: 9px 13px;
+    margin-bottom: 10px;
+  }
+  .stage + .strip {
+    margin-top: 12px;
+  }
+  .sc {
+    padding: 8px 6px;
+  }
+  .sc b {
+    font-size: 20px;
+  }
+  .sc span {
+    margin-top: 4px;
+  }
+}
+
+/*
+ * Режим «одне вікно»: висоту ділить flex, а не фіксовані розміри — стіл і
+ * сітка беруть те, що лишилось від шапки й смужок. Тому екран не стрибає між
+ * питанням і відповіддю: висота стола однакова в обох станах.
+ * Нижче 620px висоти підганяти нема сенсу — там сторінка просто гортається.
+ */
+@media (min-width: 1000px) and (min-height: 620px) {
+  body {
+    padding: 18px 20px 20px;
+  }
+  .wrap.fit {
+    height: calc(100dvh - 38px);
+    display: flex;
+    flex-direction: column;
+  }
+  .wrap.fit > section {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .wrap.fit .stage {
+    flex: 1 1 auto;
+    min-height: 0;
+    padding: 16px 16px 18px;
+  }
+
+  /*
+   * Стіл бере вільну висоту колонки, ширина йде за пропорцією. Пропорція тут
+   * пласкіша за базові 1.72: висоту диктує вікно, і на низькому вікні стіл за
+   * рідною пропорцією виходив вузькою плямою посеред порожньої колонки.
+   * На високому вікні спрацьовує max-width — і пропорція вертається до рідної.
+   */
+  .wrap.fit .felt-wrap {
+    flex: 1 1 0;
+    min-height: 150px;
+    max-height: 380px;
+    aspect-ratio: 2.3;
+    width: auto;
+    max-width: 100%;
+    align-self: center;
+  }
+
+  /* Сітка 13×13 квадратна, тож так само: висота задає ширину. */
+  .wrap.fit .duel .verdict {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+  .wrap.fit .duel .grid.compact {
+    flex: 1 1 0;
+    min-height: 0;
+    width: auto;
+    max-width: none;
+    max-height: 340px;
+    aspect-ratio: 1;
+    align-self: center;
+    grid-template-rows: repeat(13, minmax(0, 1fr));
+    margin: 12px auto 0;
+  }
+  .wrap.fit .duel .next {
+    flex: 0 0 auto;
+    align-self: center;
+  }
 }

@@ -52,9 +52,13 @@ export default function App() {
   const g = gateStatus(pre.recent, pre.total)
   const doneCount = [g.c1, g.c2, g.c3, g.c4].filter(Boolean).length
 
+  // Екран рішення розкладається під висоту вікна (клас `fit`), решта вкладок —
+  // довгі таблиці, які гортаються як завжди.
+  const training =
+    stage === 'pre' ? tab === 'train' : postUnlocked && postTab === 'train'
+
   return (
-    <div className="wrap">
-      <AccountBar />
+    <div className={`wrap${training ? ' fit' : ''}`}>
       <div className="head">
         <div>
           <h1>
@@ -62,6 +66,7 @@ export default function App() {
           </h1>
           <div className="sub">Кеш · лузове мікро-поле</div>
         </div>
+        <AccountBar />
       </div>
 
       {legacyImported !== null && (

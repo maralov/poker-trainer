@@ -8,6 +8,7 @@ import { StatStrip } from '../components/StatStrip'
 import { Verdict } from '../components/Verdict'
 import { SCENARIOS } from '../engine/ranges'
 import { SCENARIO_KEYS, type Scenario } from '../engine/types'
+import { useScrollToResult } from '../hooks/useScrollToResult'
 import { useProgressStore } from '../store/progressStore'
 import { useSessionStore } from '../store/sessionStore'
 import { useStatsSource } from '../store/statsSource'
@@ -40,6 +41,8 @@ export function Train() {
     if (showBanner) markPostSeen()
   }, [showBanner, markPostSeen])
 
+  const sideRef = useScrollToResult(feedback !== null)
+
   const acc = pre.total ? Math.round((pre.correct / pre.total) * 100) : 0
 
   return (
@@ -62,44 +65,47 @@ export function Train() {
 
       <DrillBar />
 
-      <div className="stage">
+      <div className="stage duel">
         {spot && (
           <>
-            <PokerTable spot={spot} />
-            <HandCards cards={spot.cards} />
-            <div className="hand-label">{spot.hand}</div>
-            <p className="prompt">{spot.prompt}</p>
+            <div className="duel-board">
+              <PokerTable spot={spot} />
+              <HandCards cards={spot.cards} />
+              <div className="hand-label">{spot.hand}</div>
+              <p className="prompt">{spot.prompt}</p>
+            </div>
 
-            {!feedback && (
-              <div className="acts">
-                {spot.options.map((o, i) => (
-                  <button
-                    type="button"
-                    key={o.k}
-                    className={`act-btn ${o.c}`}
-                    onClick={() => answer(o.k)}
-                  >
-                    {o.l}
-                    <small>клавіша {i + 1}</small>
-                  </button>
-                ))}
-              </div>
-            )}
+            <div className="duel-side" ref={sideRef}>
+              {!feedback && (
+                <div className="acts">
+                  {spot.options.map((o, i) => (
+                    <button
+                      type="button"
+                      key={o.k}
+                      className={`act-btn ${o.c}`}
+                      onClick={() => answer(o.k)}
+                    >
+                      {o.l}
+                      <small>клавіша {i + 1}</small>
+                    </button>
+                  ))}
+                </div>
+              )}
 
-            {feedback && (
-              <Verdict
-                spot={spot}
-                ok={feedback.ok}
-                handStreak={feedback.handStreak}
-                onNext={next}
-              />
-            )}
+              {feedback && (
+                <Verdict
+                  spot={spot}
+                  ok={feedback.ok}
+                  handStreak={feedback.handStreak}
+                  onNext={next}
+                />
+              )}
+            </div>
           </>
         )}
       </div>
 
       <StatStrip
-        style={{ marginTop: 18 }}
         cells={[
           { value: streak, label: 'серія' },
           { value: `${acc}%`, label: 'точність' },

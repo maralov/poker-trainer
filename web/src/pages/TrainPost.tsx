@@ -5,6 +5,7 @@ import type { PostScenario } from '../engine/postflop'
 import { PostBoard } from '../components/PostBoard'
 import { PostVerdict } from '../components/PostVerdict'
 import { StatStrip } from '../components/StatStrip'
+import { useScrollToResult } from '../hooks/useScrollToResult'
 import { usePostSessionStore } from '../store/postSessionStore'
 import { usePostStatsSource } from '../store/postStatsSource'
 
@@ -36,6 +37,8 @@ export function TrainPost() {
     if (!episode) deal()
   }, [episode, deal])
 
+  const sideRef = useScrollToResult(feedback !== null)
+
   const acc = post.total ? Math.round((post.correct / post.total) * 100) : 0
 
   return (
@@ -46,41 +49,44 @@ export function TrainPost() {
         onPick={(k) => setScenario(k)}
       />
 
-      <div className="stage">
+      <div className="stage duel">
         {episode && (
           <>
-            <PostBoard episode={episode} frozen={feedback ? decision : null} />
+            <div className="duel-board">
+              <PostBoard episode={episode} frozen={feedback ? decision : null} />
+            </div>
 
-            {decision && !feedback && (
-              <div className="acts">
-                {decision.options.map((o, i) => (
-                  <button
-                    type="button"
-                    key={o.k}
-                    className={`act-btn ${o.c}`}
-                    onClick={() => answer(o.k)}
-                  >
-                    {o.l}
-                    <small>клавіша {i + 1}</small>
-                  </button>
-                ))}
-              </div>
-            )}
+            <div className="duel-side" ref={sideRef}>
+              {decision && !feedback && (
+                <div className="acts">
+                  {decision.options.map((o, i) => (
+                    <button
+                      type="button"
+                      key={o.k}
+                      className={`act-btn ${o.c}`}
+                      onClick={() => answer(o.k)}
+                    >
+                      {o.l}
+                      <small>клавіша {i + 1}</small>
+                    </button>
+                  ))}
+                </div>
+              )}
 
-            {feedback && decision && (
-              <PostVerdict
-                decision={decision}
-                ok={feedback.ok}
-                handOver={handOver}
-                onNext={continueHand}
-              />
-            )}
+              {feedback && decision && (
+                <PostVerdict
+                  decision={decision}
+                  ok={feedback.ok}
+                  handOver={handOver}
+                  onNext={continueHand}
+                />
+              )}
+            </div>
           </>
         )}
       </div>
 
       <StatStrip
-        style={{ marginTop: 18 }}
         cells={[
           { value: streak, label: 'серія' },
           { value: `${acc}%`, label: 'точність' },
