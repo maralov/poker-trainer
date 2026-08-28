@@ -37,7 +37,6 @@ export function PostBoard({
   return (
     <>
       <StatStrip
-        style={{ marginBottom: 22 }}
         cells={[
           { value: episode.heroPos, label: 'позиція', mono: true },
           { value: episode.ip ? 'у позиції' : 'поза позицією', label: 'статус', mono: true },
