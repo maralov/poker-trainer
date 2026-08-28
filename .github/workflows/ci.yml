@@ -30,8 +30,14 @@ jobs:
       - run: npm run lint
         working-directory: web
 
+      # Ті самі несправжні значення, що й у збірці: `api/supabase.ts` вимагає
+      # їх ще на імпорті, тож без них половина тестових файлів не завантажиться.
+      # Мережі тести не торкаються — клієнт у них підмінений.
       - run: npm test
         working-directory: web
+        env:
+          VITE_SUPABASE_URL: http://127.0.0.1:54321
+          VITE_SUPABASE_ANON_KEY: ci-placeholder
 
       - name: Збірка
         working-directory: web
