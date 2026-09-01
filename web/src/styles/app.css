@@ -504,7 +504,7 @@ h4:first-child {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  color: #141a21;
+  color: var(--suit, #141a21);
   box-shadow: 0 10px 22px rgba(0, 0, 0, 0.45);
   animation: deal 0.26s cubic-bezier(0.2, 0.9, 0.3, 1.2) backwards;
 }
@@ -526,14 +526,30 @@ h4:first-child {
   font-weight: 600;
   line-height: 1;
 }
+/* «10» — єдиний двознаковий ранг; у повному кеглі він розпирає карту. */
+.card .r.ten {
+  font-size: 28px;
+  letter-spacing: -0.02em;
+}
 .card .s {
   font-size: 23px;
   line-height: 1;
   margin-top: 2px;
 }
-.card.red .r,
-.card.red .s {
-  color: #b3322c;
+/* Чотириколірна колода. Відтінки підібрані під кремове тло карти: пікова
+   лишається майже чорною, решта відходять від неї настільки, щоб масть
+   зчитувалася кольором ще до того, як око розбере значок. */
+.card.spade {
+  --suit: #141a21;
+}
+.card.heart {
+  --suit: #b3322c;
+}
+.card.diam {
+  --suit: #1a5b9c;
+}
+.card.club {
+  --suit: #1c6b45;
 }
 .card.hero {
   background: linear-gradient(170deg, #fff9ec, #efe3c8);
@@ -1069,6 +1085,9 @@ td.m {
   }
   .card .r {
     font-size: 27px;
+  }
+  .card .r.ten {
+    font-size: 23px;
   }
   .card .s {
     font-size: 19px;
