@@ -4,6 +4,7 @@ import { useState } from 'react'
 
 import { Chips } from '../components/Chips'
 import { Grid13 } from '../components/Grid13'
+import { RangeLegend } from '../components/RangeLegend'
 import { pct, union } from '../engine/cards'
 import {
   ISO,
@@ -75,24 +76,6 @@ function buildView(scen: Scenario, sub: string): View {
   }
 }
 
-/** Свотч дії: два відтінки brass, бо саме ними сітка малює діапазон агресії. */
-const PAIR_SPLIT = 'linear-gradient(135deg, var(--brass) 0 50%, var(--brass-dim) 50% 100%)'
-
-/**
- * Легенда описує рівно ті кольори, що є в сітці. Діапазон агресії малюється
- * двома відтінками brass (`.cell.raise` і світліший `.cell.raise.pair`), але
- * дія в них одна — світліше лише позначає діагональ пар, тож це один пункт
- * легенди з двоколірним свотчем, а не дві різні дії. Зелений зʼявляється
- * тільки там, де є колл-діапазон.
- */
-function legendItems(action: string, hasCall: boolean): { color: string; label: string }[] {
-  return [
-    { color: PAIR_SPLIT, label: action },
-    ...(hasCall ? [{ color: 'var(--green-dim)', label: 'Колл' }] : []),
-    { color: 'var(--panel2)', label: 'Фолд' },
-  ]
-}
-
 export function Ranges() {
   const [scen, setScen] = useState<Scenario>('rfi')
   const [sub, setSub] = useState<string>('BTN')
@@ -121,15 +104,7 @@ export function Ranges() {
 
         <Grid13 ranges={view.ranges} />
 
-        <div className="legend">
-          {legendItems(view.legendLabel, hasCall).map((it) => (
-            <span key={it.label}>
-              <i style={{ background: it.color }} />
-              {it.label}
-            </span>
-          ))}
-          <span className="legend-hint">світліший відтінок — орієнтир на діагональ пар, не окрема дія</span>
-        </div>
+        <RangeLegend action={view.legendLabel} hasCall={hasCall} />
 
         <div className="range-head">
           <b>{total.toFixed(1)}%</b>
