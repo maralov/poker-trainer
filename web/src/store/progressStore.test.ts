@@ -143,4 +143,28 @@ describe('useProgressStore persist migrate', () => {
     expect(state.postUnlocked).toBe(true)
     expect(state.post).toEqual(emptyPostProgress())
   })
+
+  it('версія 2 без drillLog дописує порожній, постфлоп-прогрес лишається', async () => {
+    const { drillLog: _omit, ...v2Post } = { ...emptyPostProgress(), total: 7, correct: 6 }
+    localStorage.setItem(
+      'poker_trainer_web_v1',
+      JSON.stringify({
+        state: { post: v2Post, postUnlocked: true, postSeen: true, legacyImported: null, legacyChecked: true },
+        version: 2,
+      }),
+    )
+
+    const mod = await import('./progressStore')
+    await new Promise<void>((resolve) => {
+      if (mod.useProgressStore.persist.hasHydrated()) {
+        resolve()
+        return
+      }
+      mod.useProgressStore.persist.onFinishHydration(() => resolve())
+    })
+
+    const post = mod.useProgressStore.getState().post
+    expect(post.total).toBe(7)
+    expect(post.drillLog).toEqual([])
+  })
 })

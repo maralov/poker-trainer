@@ -11,6 +11,7 @@ import {
   type Facing,
   type PostAction,
   type PostCategory,
+  type PostFixKey,
   type PostProgress,
   type Street,
   type Texture,
@@ -40,6 +41,7 @@ export function mergePostProgress(
       episodeId: row.episode_id,
       board: row.board,
       hand: row.hand,
+      ...(row.is_drill && row.drill_fix ? { drill: row.drill_fix as PostFixKey } : {}),
     })
     streak = result.streak
   }

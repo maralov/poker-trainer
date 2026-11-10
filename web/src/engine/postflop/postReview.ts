@@ -201,7 +201,9 @@ const act = (a: PostAction): string => POST_ACT_LABEL[a]
 export function buildPostReview(progress: PostProgress): PostReview {
   const log = progress.log
   const played = progress.total
-  const acc = played ? Math.round(((played - log.length) / played) * 100) : 0
+  // played рахує лише звичайні роздачі, тож і помилки для точності — лише звідти.
+  const gameMistakes = log.filter((e) => e.d === undefined).length
+  const acc = played ? Math.round(((played - gameMistakes) / played) * 100) : 0
 
   const counts = new Map<PostFixKey, number>()
   for (const e of log) {
@@ -244,7 +246,7 @@ export function buildPostReview(progress: PostProgress): PostReview {
       ...(e.ep === undefined ? {} : { ep: e.ep }),
     }))
 
-  return { played, acc, mistakes: log.length, findings, topMistakes, worstSlice: worstOf(progress) }
+  return { played, acc, mistakes: gameMistakes, findings, topMistakes, worstSlice: worstOf(progress) }
 }
 
 /** Текстовий звіт — той самий формат, що в префлопі, щоб можна було нести на розбір. */

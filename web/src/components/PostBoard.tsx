@@ -4,6 +4,8 @@
  * постфлопу потрібне простіше зведення (спека §6).
  */
 
+import { useLayoutEffect, useRef } from 'react'
+
 import { STREET_LABEL, type EpisodeState, type HeroDecision } from '../engine/postflop'
 import { HandCards } from './HandCards'
 import { StatStrip } from './StatStrip'
@@ -21,6 +23,15 @@ export function PostBoard({
    */
   frozen?: HeroDecision | null
 }) {
+  const storyRef = useRef<HTMLDivElement>(null)
+  const storyLen = episode.history.length
+  // У режимі «одне вікно» історія прокручується; найсвіжіша подія — внизу, тож
+  // тримаємо її на виду, а не початок роздачі.
+  useLayoutEffect(() => {
+    const el = storyRef.current
+    if (el) el.scrollTop = el.scrollHeight
+  }, [storyLen])
+
   const hero = episode.seats[episode.heroIdx]
   if (!hero) return null
 
@@ -52,7 +63,7 @@ export function PostBoard({
       <HandCards cards={hero.hole} />
 
       {episode.history.length > 0 && (
-        <div className="hand-story">
+        <div className="hand-story" ref={storyRef}>
           {episode.history.map((line, i) => (
             // Ключ за індексом свідомо: історія лише росте в кінець і не
             // переставляється (engine робить тільки history.push).

@@ -11,17 +11,22 @@ import {
   answerPost,
   boardCode,
   heroDecision,
+  nextDrillSpot,
+  postDrillPool,
   startEpisode,
   type EpisodeEnd,
   type EpisodeState,
   type HeroDecision,
   type PostAction,
+  type PostDrillTarget,
   type PostScenario,
 } from '../engine/postflop'
+import { getPostStatsProgress } from './postStatsSource'
 import { useProgressStore } from './progressStore'
 
 export interface PostFeedback {
   readonly ok: boolean
+  readonly chosen: PostAction
   readonly correct: PostAction
   readonly why: string
 }
@@ -36,11 +41,17 @@ export interface PostSessionState {
   handOver: EpisodeEnd | null
   streak: number
   scenario: PostScenario
+  /** Увімкнено drill по патернах помилок. */
+  drillOn: boolean
+  /** Що тренує поточний drill-спот; null — звичайна роздача. */
+  drillTarget: PostDrillTarget | null
 
   deal: () => void
   answer: (chosen: PostAction) => void
   continueHand: () => void
   setScenario: (scenario: PostScenario) => void
+  startDrill: () => void
+  stopDrill: () => void
 }
 
 export const usePostSessionStore = create<PostSessionState>()((set, get) => ({
@@ -50,19 +61,39 @@ export const usePostSessionStore = create<PostSessionState>()((set, get) => ({
   handOver: null,
   streak: 0,
   scenario: 'rfi',
+  drillOn: false,
+  drillTarget: null,
 
   deal: () => {
-    const episode = startEpisode({ scenario: get().scenario, id: crypto.randomUUID() })
+    const id = crypto.randomUUID()
+    if (get().drillOn) {
+      const spot = nextDrillSpot(postDrillPool(getPostStatsProgress()), { id })
+      if (spot) {
+        set({
+          episode: spot.episode,
+          decision: heroDecision(spot.episode),
+          feedback: null,
+          handOver: null,
+          drillTarget: spot.target,
+        })
+        return
+      }
+      // Пул вичерпався просто зараз — тихо виходимо з drill, як і в префлопі.
+      set({ drillOn: false })
+    }
+
+    const episode = startEpisode({ scenario: get().scenario, id })
     set({
       episode,
       decision: heroDecision(episode),
       feedback: null,
       handOver: null,
+      drillTarget: null,
     })
   },
 
   answer: (chosen) => {
-    const { episode, decision, feedback } = get()
+    const { episode, decision, feedback, drillTarget } = get()
     // Немає що відповідати, або відповідь на це рішення вже прийнята —
     // подвійний клік не має подвоювати подію в журналі.
     if (!episode || !decision || feedback) return
@@ -88,6 +119,7 @@ export const usePostSessionStore = create<PostSessionState>()((set, get) => ({
         episodeId: episode.id,
         board: boardCode(d.board),
         hand: d.hand,
+        ...(drillTarget ? { drill: drillTarget.fix } : {}),
       },
       get().streak,
     )
@@ -96,7 +128,8 @@ export const usePostSessionStore = create<PostSessionState>()((set, get) => ({
       client_id: crypto.randomUUID(),
       episode_id: episode.id,
       line: episode.line,
-      scenario: get().scenario,
+      // Сценарій епізоду, а не обраний чіп: drill роздає з усіх трьох.
+      scenario: episode.scenario,
       hero_pos: episode.heroPos,
       opp_pos: d.oppPositions.join(','),
       n_opps: d.nOpps,
@@ -113,18 +146,21 @@ export const usePostSessionStore = create<PostSessionState>()((set, get) => ({
       chosen,
       correct: d.correct,
       answered_at: new Date().toISOString(),
+      is_drill: drillTarget !== null,
+      drill_fix: drillTarget?.fix ?? null,
     })
 
     set({
-      feedback: { ok: result.ok, correct: d.correct, why: d.why },
+      feedback: { ok: result.ok, chosen, correct: d.correct, why: d.why },
       streak: record.streak,
       handOver: result.finished,
     })
   },
 
   continueHand: () => {
-    const { episode, handOver } = get()
-    if (!episode || handOver) {
+    const { episode, handOver, drillTarget } = get()
+    // Drill — одне рішення на спот: решту роздачі не дограємо.
+    if (!episode || handOver || drillTarget) {
       get().deal()
       return
     }
@@ -133,6 +169,16 @@ export const usePostSessionStore = create<PostSessionState>()((set, get) => ({
 
   setScenario: (scenario) => {
     set({ scenario })
+    get().deal()
+  },
+
+  startDrill: () => {
+    set({ drillOn: true })
+    get().deal()
+  },
+
+  stopDrill: () => {
+    set({ drillOn: false })
     get().deal()
   },
 }))

@@ -8,7 +8,7 @@ import { describe, expect, it } from 'vitest'
 
 import { SUITS, VAL } from '../engine/cards'
 import { RANKS, type Card, type Rank } from '../engine/types'
-import type { EpisodeEnd, HeroDecision } from '../engine/postflop'
+import { POST_FIX, type EpisodeEnd, type HeroDecision } from '../engine/postflop'
 import { PostVerdict } from './PostVerdict'
 
 const SUIT_CODES = ['s', 'h', 'd', 'c']
@@ -57,7 +57,7 @@ const noop = () => {}
 describe('PostVerdict', () => {
   it('правильна відповідь показує «Правильно» і клас verdict.ok', () => {
     const { container } = render(
-      <PostVerdict decision={makeDecision()} ok={true} handOver={null} onNext={noop} />,
+      <PostVerdict decision={makeDecision()} chosen="b66" ok={true} handOver={null} onNext={noop} />,
     )
     expect(screen.getByText('Правильно')).toBeInTheDocument()
     expect(container.querySelector('.verdict.ok')).not.toBeNull()
@@ -68,7 +68,7 @@ describe('PostVerdict', () => {
     render(
       <PostVerdict
         decision={makeDecision({ correct: 'check', why: 'Тут краще стримати руку.' })}
-        ok={false}
+        chosen="b66" ok={false}
         handOver={null}
         onNext={noop}
       />,
@@ -82,7 +82,7 @@ describe('PostVerdict', () => {
     const { container } = render(
       <PostVerdict
         decision={makeDecision({ nOpps: 2, ip: false, texture: 'WET' })}
-        ok={true}
+        chosen="b66" ok={true}
         handOver={null}
         onNext={noop}
       />,
@@ -96,7 +96,7 @@ describe('PostVerdict', () => {
 
   it('лінія роздачі підписана тегом', () => {
     const { unmount } = render(
-      <PostVerdict decision={makeDecision()} ok={true} handOver={null} onNext={noop} />,
+      <PostVerdict decision={makeDecision()} chosen="b66" ok={true} handOver={null} onNext={noop} />,
     )
     expect(screen.getByText('агресор')).toBeInTheDocument()
     unmount()
@@ -104,7 +104,7 @@ describe('PostVerdict', () => {
     render(
       <PostVerdict
         decision={makeDecision({ line: 'caller' })}
-        ok={true}
+        chosen="b66" ok={true}
         handOver={null}
         onNext={noop}
       />,
@@ -116,7 +116,7 @@ describe('PostVerdict', () => {
     render(
       <PostVerdict
         decision={makeDecision({ nOpps: 1, ip: true })}
-        ok={true}
+        chosen="b66" ok={true}
         handOver={null}
         onNext={noop}
       />,
@@ -126,25 +126,25 @@ describe('PostVerdict', () => {
   })
 
   it('кнопка каже «Далі · пробіл», доки роздача триває', () => {
-    render(<PostVerdict decision={makeDecision()} ok={true} handOver={null} onNext={noop} />)
+    render(<PostVerdict decision={makeDecision()} chosen="b66" ok={true} handOver={null} onNext={noop} />)
     expect(screen.getByRole('button', { name: 'Далі · пробіл' })).toBeInTheDocument()
   })
 
   it('кнопка каже «Наступна рука · пробіл», коли роздача завершена', () => {
     const end: EpisodeEnd = { kind: 'hero-folded', heroWon: false, potBB: 6, shown: [] }
-    render(<PostVerdict decision={makeDecision()} ok={true} handOver={end} onNext={noop} />)
+    render(<PostVerdict decision={makeDecision()} chosen="b66" ok={true} handOver={end} onNext={noop} />)
     expect(screen.getByRole('button', { name: 'Наступна рука · пробіл' })).toBeInTheDocument()
   })
 
   it('фолд героя показує примітку про завершену роздачу', () => {
     const end: EpisodeEnd = { kind: 'hero-folded', heroWon: false, potBB: 6, shown: [] }
-    render(<PostVerdict decision={makeDecision()} ok={true} handOver={end} onNext={noop} />)
+    render(<PostVerdict decision={makeDecision()} chosen="b66" ok={true} handOver={end} onNext={noop} />)
     expect(screen.getByText('Ти скинув — роздача завершена')).toBeInTheDocument()
   })
 
   it('фолд опонентів показує примітку про виграний банк', () => {
     const end: EpisodeEnd = { kind: 'villains-folded', heroWon: true, potBB: 9, shown: [] }
-    render(<PostVerdict decision={makeDecision()} ok={true} handOver={end} onNext={noop} />)
+    render(<PostVerdict decision={makeDecision()} chosen="b66" ok={true} handOver={end} onNext={noop} />)
     expect(screen.getByText('Усі скинули, банк твій')).toBeInTheDocument()
   })
 
@@ -158,9 +158,27 @@ describe('PostVerdict', () => {
         { pos: 'BB', hole: cards('7s2c'), label: 'пара', won: false },
       ],
     }
-    render(<PostVerdict decision={makeDecision()} ok={true} handOver={end} onNext={noop} />)
+    render(<PostVerdict decision={makeDecision()} chosen="b66" ok={true} handOver={end} onNext={noop} />)
     expect(screen.getByText('Шоудаун')).toBeInTheDocument()
     expect(screen.getByText('BTN: топ-пара, сильний кікер · переможець')).toBeInTheDocument()
     expect(screen.getByText('BB: пара')).toBeInTheDocument()
+  })
+
+  it('у drill пояснює помилку, яку герой зробив, а не лише ту, що тренує спот', () => {
+    // Спот «замалого сайзу» (правильно 66%), але герой чекнув — це пропущене валью.
+    render(
+      <PostVerdict
+        decision={makeDecision({ facing: 'none', cat: 'STRONG_MADE', texture: 'WET', correct: 'b66' })}
+        chosen="check"
+        ok={false}
+        handOver={null}
+        drill={{ fix: 'sizeSmall', contrast: false }}
+        onNext={noop}
+      />,
+    )
+    const note = document.querySelector('.verdict .note')?.textContent ?? ''
+    expect(note).toContain(POST_FIX.sizeSmall.title)
+    expect(note).toContain(POST_FIX.missValue.text)
+    expect(note).not.toContain(POST_FIX.sizeSmall.text)
   })
 })

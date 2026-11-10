@@ -7,7 +7,11 @@
  */
 
 import {
+  POST_DRILL_LOG_LIMIT,
+  POST_FIX,
   emptyPostProgress,
+  type PostDrillEntry,
+  type PostFixKey,
   type PostMistakeEntry,
   type PostProgress,
 } from '../engine/postflop'
@@ -41,13 +45,14 @@ const DIMENSIONS: Readonly<Record<string, SliceField>> = {
 }
 
 export async function fetchServerPostProgress(): Promise<ServerPostProgress> {
-  const [summary, totals, mistakes] = await Promise.all([
+  const [summary, totals, mistakes, drillTail] = await Promise.all([
     supabase.rpc('postflop_summary'),
     supabase.rpc('postflop_totals'),
     supabase.rpc('postflop_mistakes', { max_rows: MISTAKES_LIMIT }),
+    supabase.rpc('postflop_drill_tail', { max_rows: POST_DRILL_LOG_LIMIT }),
   ])
 
-  const failed = [summary, totals, mistakes].find((r) => r.error)
+  const failed = [summary, totals, mistakes, drillTail].find((r) => r.error)
   if (failed?.error) throw new Error(failed.error.message)
 
   const p = emptyPostProgress()
@@ -81,7 +86,16 @@ export async function fetchServerPostProgress(): Promise<ServerPostProgress> {
       ep: r.episode_id,
       board: r.board,
       hand: r.hand,
+      ...(r.is_drill ? { d: 1 as const } : {}),
     }),
+  )
+
+  // База пропускає лише відомі ключі (check-обмеження), але старий клієнт
+  // після перейменування патерну міг би отримати чужий — такі просто пропускаємо.
+  p.drillLog = (drillTail.data ?? []).flatMap((r): PostDrillEntry[] =>
+    r.drill_fix && r.drill_fix in POST_FIX
+      ? [{ f: r.drill_fix as PostFixKey, ok: r.is_correct ? 1 : 0, t: Date.parse(r.answered_at) }]
+      : [],
   )
 
   return { progress: p, fetchedAt: Date.now(), resetAt }

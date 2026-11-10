@@ -3,6 +3,7 @@ import { useEffect } from 'react'
 import { Chips } from '../components/Chips'
 import type { PostScenario } from '../engine/postflop'
 import { PostBoard } from '../components/PostBoard'
+import { PostDrillBar } from '../components/PostDrillBar'
 import { PostVerdict } from '../components/PostVerdict'
 import { StatStrip } from '../components/StatStrip'
 import { useScrollToResult } from '../hooks/useScrollToResult'
@@ -29,6 +30,8 @@ export function TrainPost() {
   const answer = usePostSessionStore((s) => s.answer)
   const continueHand = usePostSessionStore((s) => s.continueHand)
   const setScenario = usePostSessionStore((s) => s.setScenario)
+  const drillOn = usePostSessionStore((s) => s.drillOn)
+  const drillTarget = usePostSessionStore((s) => s.drillTarget)
 
   // Перша роздача — після монтування, а не в ініціалізаторі стору: до цього
   // моменту persist ще не встиг відновити прогрес із localStorage (те саме
@@ -47,7 +50,11 @@ export function TrainPost() {
         items={SCENARIO_ITEMS}
         isOn={(k) => scenario === k}
         onPick={(k) => setScenario(k)}
+        // Drill роздає з усіх сценаріїв: вибір тут нічого б не змінив.
+        disabled={drillOn}
       />
+
+      <PostDrillBar />
 
       <div className="stage duel">
         {episode && (
@@ -77,7 +84,9 @@ export function TrainPost() {
                 <PostVerdict
                   decision={decision}
                   ok={feedback.ok}
+                  chosen={feedback.chosen}
                   handOver={handOver}
+                  drill={drillTarget}
                   onNext={continueHand}
                 />
               )}
