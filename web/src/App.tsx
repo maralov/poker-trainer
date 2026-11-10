@@ -2,6 +2,7 @@ import { useState } from 'react'
 
 import { AccountBar } from './components/AccountBar'
 import { GateLock } from './components/GateLock'
+import { InstallBanner } from './components/InstallBanner'
 import { gateStatus } from './engine/gate'
 import { usePostTrainHotkeys, useTrainHotkeys } from './hooks/useHotkeys'
 import { PostReview } from './pages/PostReview'
@@ -68,6 +69,8 @@ export default function App() {
         </div>
         <AccountBar />
       </div>
+
+      <InstallBanner />
 
       {legacyImported !== null && (
         <div className="banner">
