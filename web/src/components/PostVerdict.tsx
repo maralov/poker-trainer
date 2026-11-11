@@ -5,24 +5,37 @@
  */
 
 import {
+  POST_FIX,
   POST_ACT_LABEL,
   POST_CAT_LABEL,
   TEX_LABEL,
+  fixOfChoice,
   type EpisodeEnd,
   type HeroDecision,
+  type PostAction,
+  type PostDrillTarget,
 } from '../engine/postflop'
 
 export function PostVerdict({
   decision,
   ok,
+  chosen,
   handOver,
+  drill = null,
   onNext,
 }: {
   decision: HeroDecision
   ok: boolean
+  chosen: PostAction
   handOver: EpisodeEnd | null
+  /** Drill-спот: вердикт називає патерн, який тут тренується. */
+  drill?: PostDrillTarget | null
   onNext: () => void
 }) {
+  const fix = drill ? POST_FIX[drill.fix] : null
+  // Помилка не обовʼязково та, яку тренує спот (на «замалому сайзі» можна й
+  // чекнути) — пояснюємо те, що герой зробив насправді.
+  const made = drill && !ok ? POST_FIX[fixOfChoice(decision, chosen)] : null
   return (
     <div className={`verdict ${ok ? 'ok' : 'no'}`}>
       <h3>{ok ? 'Правильно' : 'Помилка'}</h3>
@@ -40,7 +53,24 @@ export function PostVerdict({
         Правильно тут — <strong>{POST_ACT_LABEL[decision.correct]}</strong>. {decision.why}
       </p>
 
-      {handOver && (
+      {drill && fix && (
+        <p className="note">
+          {drill.contrast ? (
+            <>
+              Контрольний спот до патерну <strong>«{fix.title}»</strong>: ситуація схожа, але рука
+              інша — і правильна дія теж.
+            </>
+          ) : (
+            <>
+              <strong>{fix.title}.</strong>
+              {made && made !== fix && ` Але цей вибір — інша помилка: «${made.title}».`}
+              {made && ` ${made.text}`}
+            </>
+          )}
+        </p>
+      )}
+
+      {!drill && handOver && (
         <p className="note">
           {handOver.kind === 'hero-folded' && 'Ти скинув — роздача завершена'}
           {handOver.kind === 'villains-folded' && 'Усі скинули, банк твій'}
@@ -58,7 +88,7 @@ export function PostVerdict({
       )}
 
       <button type="button" className="next" onClick={onNext}>
-        {handOver ? 'Наступна рука · пробіл' : 'Далі · пробіл'}
+        {drill ? 'Наступний спот · пробіл' : handOver ? 'Наступна рука · пробіл' : 'Далі · пробіл'}
       </button>
     </div>
   )

@@ -286,3 +286,75 @@ describe('postflop_mistakes', () => {
     expect(data?.[0]?.line).toBe('aggressor')
   })
 })
+
+describe('Drill', () => {
+  const drill = (over: Record<string, unknown> = {}) =>
+    decision({ is_drill: true, drill_fix: 'riverBluff', ...over })
+  // Масова вставка PostgREST вимагає однакових ключів у всіх рядках.
+  const game = (over: Record<string, unknown> = {}) =>
+    decision({ is_drill: false, drill_fix: null, ...over })
+
+  it('drill-рядок без патерну і патерн без drill база не приймає', async () => {
+    const a = await alice.client.from('postflop_attempts').insert(decision({ is_drill: true }))
+    expect(a.error).not.toBeNull()
+    const b = await alice.client.from('postflop_attempts').insert(decision({ drill_fix: 'riverBluff' }))
+    expect(b.error).not.toBeNull()
+    const c = await alice.client.from('postflop_attempts').insert(drill({ drill_fix: 'nope' }))
+    expect(c.error).not.toBeNull()
+  })
+
+  it('зрізи і підсумок рахують лише звичайні роздачі', async () => {
+    await alice.client.from('postflop_attempts').insert([
+      game(),
+      drill({ chosen: 'b66', correct: 'check' }),
+      drill({ chosen: 'check', correct: 'check' }),
+    ])
+
+    const { data: summary } = await alice.client.rpc('postflop_summary')
+    expect(Number(summary?.[0]?.total)).toBe(1)
+
+    const { data: totals } = await alice.client.rpc('postflop_totals')
+    const street = totals?.find((r) => r.dimension === 'street')
+    expect(Number(street?.played)).toBe(1)
+  })
+
+  it('журнал помилок віддає drill-помилки з позначкою', async () => {
+    await alice.client.from('postflop_attempts').insert([
+      game({ chosen: 'b66', correct: 'check' }),
+      drill({ chosen: 'b66', correct: 'check' }),
+    ])
+    const { data } = await alice.client.rpc('postflop_mistakes', { max_rows: 10 })
+    expect(data?.map((r) => r.is_drill).sort()).toEqual([false, true])
+  })
+
+  it('хвіст drill — лише свої drill-відповіді, у хронологічному порядку', async () => {
+    await alice.client.from('postflop_attempts').insert([
+      game(),
+      drill({ chosen: 'check', correct: 'check', answered_at: '2026-08-01T10:00:02Z' }),
+      drill({ chosen: 'b66', correct: 'check', answered_at: '2026-08-01T10:00:01Z' }),
+    ])
+    await bob.client.from('postflop_attempts').insert(drill())
+
+    const { data } = await alice.client.rpc('postflop_drill_tail', { max_rows: 10 })
+    expect(data?.map((r) => [r.drill_fix, r.is_correct])).toEqual([
+      ['riverBluff', false],
+      ['riverBluff', true],
+    ])
+  })
+
+  it('батч зі старими рядками черги (без is_drill) і новими не падає', async () => {
+    // Ті самі опції, що в postSync.ts: без defaultToNull: false PostgREST
+    // підставив би старим рядкам NULL, і черга застрягла б.
+    const { is_drill: _a, drill_fix: _b, ...old } = game()
+    const { error } = await alice.client
+      .from('postflop_attempts')
+      .upsert([old, drill()], {
+        onConflict: 'user_id,client_id',
+        ignoreDuplicates: true,
+        defaultToNull: false,
+      })
+    expect(error).toBeNull()
+    const { data } = await admin.from('postflop_attempts').select('is_drill').order('is_drill')
+    expect(data?.map((r) => r.is_drill)).toEqual([false, true])
+  })
+})

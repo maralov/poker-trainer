@@ -1424,4 +1424,17 @@ td.m {
     flex: 0 0 auto;
     align-self: center;
   }
+  /*
+   * На рівері історія роздачі (особливо в drill, де вулиці розіграні наперед)
+   * довша за вільну висоту. Без цього вона вилазила б за дошку — вгору на
+   * плашку drill і вниз під смужку статистики. Тепер стискається і гортається.
+   */
+  .wrap.fit .duel-board {
+    justify-content: safe center;
+  }
+  .wrap.fit .duel-board .hand-story {
+    flex: 0 1 auto;
+    min-height: 3em;
+    overflow-y: auto;
+  }
 }

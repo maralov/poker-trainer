@@ -24,18 +24,32 @@ export const postQueue = new SyncQueue<QueuedPostAttempt>({
   send: async (batch) =>
     await supabase
       .from('postflop_attempts')
-      .upsert([...batch], { onConflict: 'user_id,client_id', ignoreDuplicates: true }),
+      .upsert([...batch], {
+        onConflict: 'user_id,client_id',
+        ignoreDuplicates: true,
+        // У черзі можуть лежати рядки старої форми (без is_drill/drill_fix).
+        // За замовчуванням PostgREST підставив би їм NULL замість дефолту
+        // колонки, NOT NULL відкинув би весь батч — і черга застрягла б назавжди.
+        defaultToNull: false,
+      }),
 })
 
 export interface PostSyncState {
   pending: number
   /** Знімок черги — щоб React бачив зміни, а не лише лічильник. */
   queued: QueuedPostAttempt[]
+  /**
+   * Час останньої успішної відправки, ms. Без нього серверні цифри не
+   * перечитувались би: черга спорожніла, а сервер ще старий — і прогрес
+   * (зокрема серії drill) відкочувався б до наступного входу.
+   */
+  lastSyncedAt: number | null
 }
 
 export const usePostSyncStore = create<PostSyncState>()(() => ({
   pending: postQueue.size,
   queued: postQueue.peek(),
+  lastSyncedAt: null,
 }))
 
 const refresh = (): void => {
@@ -50,6 +64,7 @@ export function recordPostAttempt(attempt: QueuedPostAttempt): void {
 }
 
 export async function flushPostQueue(force = false): Promise<void> {
-  await postQueue.flush(force)
+  const r = await postQueue.flush(force)
   refresh()
+  if (r.status === 'ok' && r.sent > 0) usePostSyncStore.setState({ lastSyncedAt: Date.now() })
 }

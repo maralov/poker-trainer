@@ -8,7 +8,7 @@
 import { useEffect, useMemo } from 'react'
 import { create } from 'zustand'
 
-import { usePostSyncStore } from '../api/postSync'
+import { postQueue, usePostSyncStore } from '../api/postSync'
 import { fetchServerPostProgress } from '../api/serverPostProgress'
 import type { PostProgress } from '../engine/postflop'
 import { useAuthStore } from './authStore'
@@ -39,6 +39,15 @@ export const useServerPostStats = create<ServerPostState>()((set) => ({
   reset: () => set({ progress: null, error: null }),
 }))
 
+/**
+ * Те саме зведення поза React — для стору тренування: пул drill має бачити
+ * помилки й серії з усіх пристроїв, а не лише з цього браузера.
+ */
+export function getPostStatsProgress(): PostProgress {
+  const server = useServerPostStats.getState().progress
+  return server ? mergePostProgress(server, postQueue.peek()) : useProgressStore.getState().post
+}
+
 export interface PostStatsSource {
   readonly progress: PostProgress
   /** Дані з сервера — тобто зведені з усіх пристроїв. */
@@ -59,11 +68,17 @@ export function usePostStatsSource(): PostStatsSource {
   const reset = useServerPostStats((s) => s.reset)
   const pending = usePostSyncStore((s) => s.pending)
   const queued = usePostSyncStore((s) => s.queued)
+  const lastSyncedAt = usePostSyncStore((s) => s.lastSyncedAt)
 
   useEffect(() => {
     if (session) void refresh()
     else reset()
   }, [session, refresh, reset])
+
+  // Черга доїхала — серверні цифри змінились, перечитуємо (як у statsSource.ts).
+  useEffect(() => {
+    if (session && lastSyncedAt) void refresh()
+  }, [session, lastSyncedAt, refresh])
 
   // Серверні цифри плюс те, що ще в черзі: інакше лічильник після відповіді
   // не рухався б до наступного синку.

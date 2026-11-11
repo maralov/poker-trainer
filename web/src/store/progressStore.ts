@@ -117,11 +117,14 @@ export const useProgressStore = create<ProgressState>()(
     }),
     {
       name: STORAGE_KEY,
-      version: 2,
+      version: 3,
       migrate: (persisted, version) => {
         // Версія 1 не мала `post` — дописуємо порожній розділ, нічого не втрачаючи.
         const state = persisted as ProgressState
-        return version < 2 ? { ...state, post: emptyPostProgress() } : state
+        if (version < 2) return { ...state, post: emptyPostProgress() }
+        // Версія 2 не мала drill постфлопу.
+        if (version < 3) return { ...state, post: { ...state.post, drillLog: [] } }
+        return state
       },
       onRehydrateStorage: () => (state) => {
         // Перший запуск на цьому браузері — підтягуємо standalone-прогрес.

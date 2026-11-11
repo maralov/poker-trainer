@@ -7,7 +7,7 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { emptyPostProgress } from '../engine/postflop'
+import { POST_FIX, emptyPostProgress, recordPostAnswer } from '../engine/postflop'
 import { emptyPreProgress } from '../engine/progress'
 import { usePostSessionStore } from '../store/postSessionStore'
 import { useProgressStore } from '../store/progressStore'
@@ -22,6 +22,8 @@ describe('TrainPost', () => {
       handOver: null,
       streak: 0,
       scenario: 'rfi',
+      drillOn: false,
+      drillTarget: null,
     })
     useProgressStore.setState({
       pre: emptyPreProgress(),
@@ -161,6 +163,65 @@ describe('TrainPost', () => {
       fireEvent.click(container.querySelector('.act-btn') as HTMLElement)
 
       expect(scrollIntoView).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('drill', () => {
+    const seedRiverBluffs = (): void => {
+      const post = emptyPostProgress()
+      for (const at of [1, 2]) {
+        recordPostAnswer(post, 0, {
+          street: 'river',
+          cat: 'AIR',
+          texture: 'DRY',
+          facing: 'none',
+          nOpps: 1,
+          ip: true,
+          chosen: 'b66',
+          correct: 'check',
+          at,
+        })
+      }
+      useProgressStore.setState({ post })
+    }
+
+    it('без відкритих патернів drill не запускається', () => {
+      render(<TrainPost />)
+      expect(screen.getByRole('button', { name: 'Запустити drill' })).toHaveProperty('disabled', true)
+    })
+
+    it('роздає спот патерну, пише drill-відповідь окремо від статистики', () => {
+      seedRiverBluffs()
+      const { container } = render(<TrainPost />)
+      fireEvent.click(screen.getByRole('button', { name: 'Запустити drill' }))
+
+      const { drillTarget, decision } = usePostSessionStore.getState()
+      expect(drillTarget?.fix).toBe('riverBluff')
+      expect(decision?.street).toBe('river')
+
+      const button = container.querySelector('.act-btn')
+      if (!button) throw new Error('немає кнопок дій')
+      fireEvent.click(button)
+
+      const verdict = container.querySelector('.verdict')
+      expect(verdict?.textContent).toContain(POST_FIX.riverBluff.title)
+      const post = useProgressStore.getState().post
+      expect(post.drillLog).toHaveLength(1)
+      // Дві засіяні помилки — звичайна гра; drill-відповідь total не рухає.
+      expect(post.total).toBe(2)
+
+      fireEvent.click(screen.getByRole('button', { name: /Наступний спот/ }))
+      expect(usePostSessionStore.getState().feedback).toBeNull()
+      expect(usePostSessionStore.getState().drillTarget?.fix).toBe('riverBluff')
+    })
+
+    it('вихід із drill повертає звичайні роздачі', () => {
+      seedRiverBluffs()
+      render(<TrainPost />)
+      fireEvent.click(screen.getByRole('button', { name: 'Запустити drill' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Вийти з drill' }))
+      expect(usePostSessionStore.getState().drillOn).toBe(false)
+      expect(usePostSessionStore.getState().drillTarget).toBeNull()
     })
   })
 })

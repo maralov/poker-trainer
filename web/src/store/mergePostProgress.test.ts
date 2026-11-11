@@ -93,4 +93,13 @@ describe('знімок споту з черги', () => {
     expect(merged.log[0]?.board).toBe('Ks7d2c')
     expect(merged.log[0]?.hand).toBe('AKs')
   })
+
+  it('drill-рядок черги лягає в drillLog, а не в total і зрізи', () => {
+    const merged = mergePostProgress(emptyPostProgress(), [
+      queued({ is_drill: true, drill_fix: 'riverBluff', chosen: 'b66' }),
+    ])
+    expect(merged.total).toBe(0)
+    expect(merged.drillLog).toEqual([{ f: 'riverBluff', ok: 0, t: Date.parse('2026-08-01T10:00:00.000Z') }])
+    expect(merged.log[0]?.d).toBe(1)
+  })
 })

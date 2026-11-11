@@ -100,6 +100,7 @@ export type Database = {
           client_id: string
           correct: string
           created_at: string
+          drill_fix: string | null
           episode_id: string
           facing: string
           hand: string
@@ -108,6 +109,7 @@ export type Database = {
           id: number
           ip: boolean
           is_correct: boolean
+          is_drill: boolean
           line: string
           n_opps: number
           opp_pos: string
@@ -126,6 +128,7 @@ export type Database = {
           client_id: string
           correct: string
           created_at?: string
+          drill_fix?: string | null
           episode_id: string
           facing: string
           hand: string
@@ -134,6 +137,7 @@ export type Database = {
           id?: never
           ip: boolean
           is_correct?: boolean
+          is_drill?: boolean
           line: string
           n_opps: number
           opp_pos: string
@@ -152,6 +156,7 @@ export type Database = {
           client_id?: string
           correct?: string
           created_at?: string
+          drill_fix?: string | null
           episode_id?: string
           facing?: string
           hand?: string
@@ -160,6 +165,7 @@ export type Database = {
           id?: never
           ip?: boolean
           is_correct?: boolean
+          is_drill?: boolean
           line?: string
           n_opps?: number
           opp_pos?: string
@@ -208,6 +214,14 @@ export type Database = {
           scenario: string
         }[]
       }
+      postflop_drill_tail: {
+        Args: { max_rows?: number }
+        Returns: {
+          answered_at: string
+          drill_fix: string
+          is_correct: boolean
+        }[]
+      }
       postflop_episode: {
         Args: { episode: string }
         Returns: {
@@ -238,6 +252,7 @@ export type Database = {
           facing: string
           hand: string
           ip: boolean
+          is_drill: boolean
           line: string
           n_opps: number
           street: string
