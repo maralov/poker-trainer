@@ -50,6 +50,7 @@ export type Database = {
           limpers: number | null
           scenario: string
           stage: string
+          table_size: string
           user_id: string
           villain_pos: string | null
         }
@@ -68,6 +69,7 @@ export type Database = {
           limpers?: number | null
           scenario: string
           stage?: string
+          table_size?: string
           user_id?: string
           villain_pos?: string | null
         }
@@ -86,6 +88,7 @@ export type Database = {
           limpers?: number | null
           scenario?: string
           stage?: string
+          table_size?: string
           user_id?: string
           villain_pos?: string | null
         }
@@ -117,6 +120,7 @@ export type Database = {
           repeat_aggro: boolean
           scenario: string
           street: string
+          table_size: string
           texture: string
           user_id: string
         }
@@ -145,6 +149,7 @@ export type Database = {
           repeat_aggro?: boolean
           scenario: string
           street: string
+          table_size?: string
           texture: string
           user_id?: string
         }
@@ -173,7 +178,26 @@ export type Database = {
           repeat_aggro?: boolean
           scenario?: string
           street?: string
+          table_size?: string
           texture?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_reset: {
+        Row: {
+          reset_at: string
+          table_size: string
+          user_id: string
+        }
+        Insert: {
+          reset_at: string
+          table_size: string
+          user_id?: string
+        }
+        Update: {
+          reset_at?: string
+          table_size?: string
           user_id?: string
         }
         Relationships: []
@@ -201,10 +225,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      current_reset_at: { Args: never; Returns: string }
+      current_reset_at: { Args: { target_table: string }; Returns: string }
       delete_all_progress: { Args: never; Returns: number }
       mistakes: {
-        Args: { max_rows?: number; target_scenario: string }
+        Args: {
+          max_rows?: number
+          target_scenario: string
+          target_table: string
+        }
         Returns: {
           answered_at: string
           chosen: string
@@ -215,7 +243,7 @@ export type Database = {
         }[]
       }
       postflop_drill_tail: {
-        Args: { max_rows?: number }
+        Args: { max_rows?: number; target_table: string }
         Returns: {
           answered_at: string
           drill_fix: string
@@ -241,7 +269,7 @@ export type Database = {
         }[]
       }
       postflop_mistakes: {
-        Args: { max_rows?: number }
+        Args: { max_rows?: number; target_table: string }
         Returns: {
           answered_at: string
           board: string
@@ -260,7 +288,7 @@ export type Database = {
         }[]
       }
       postflop_summary: {
-        Args: never
+        Args: { target_table: string }
         Returns: {
           best_streak: number
           correct: number
@@ -269,7 +297,7 @@ export type Database = {
         }[]
       }
       postflop_totals: {
-        Args: never
+        Args: { target_table: string }
         Returns: {
           bucket: string
           correct: number
@@ -278,16 +306,16 @@ export type Database = {
         }[]
       }
       recent_attempts: {
-        Args: { window_size?: number }
+        Args: { target_table: string; window_size?: number }
         Returns: {
           hero_pos: string
           is_correct: boolean
           scenario: string
         }[]
       }
-      reset_progress: { Args: never; Returns: string }
+      reset_progress: { Args: { target_table: string }; Returns: string }
       stats_summary: {
-        Args: never
+        Args: { target_table: string }
         Returns: {
           best_streak: number
           correct: number
@@ -296,7 +324,7 @@ export type Database = {
         }[]
       }
       stats_totals: {
-        Args: never
+        Args: { target_table: string }
         Returns: {
           correct: number
           hero_pos: string

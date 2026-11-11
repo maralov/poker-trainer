@@ -272,14 +272,14 @@ describe('SQL-функції', () => {
   })
 
   it('stats_totals рахує в межах свого користувача', async () => {
-    const { data, error } = await alice.client.rpc('stats_totals')
+    const { data, error } = await alice.client.rpc('stats_totals', { target_table: '9max' })
     expect(error).toBeNull()
     const rfi = data?.find((r) => r.scenario === 'rfi' && r.hero_pos === 'UTG')
     expect(rfi).toEqual({ scenario: 'rfi', hero_pos: 'UTG', played: 4, correct: 3 })
   })
 
   it('stats_totals не змішує позиції між сценаріями', async () => {
-    const { data } = await alice.client.rpc('stats_totals')
+    const { data } = await alice.client.rpc('stats_totals', { target_table: '9max' })
     const iso = data?.find((r) => r.scenario === 'iso' && r.hero_pos === 'UTG')
     expect(iso).toEqual({ scenario: 'iso', hero_pos: 'UTG', played: 2, correct: 1 })
     // Та сама позиція, інший сценарій — окремий рядок, а не сума.
@@ -288,7 +288,7 @@ describe('SQL-функції', () => {
   })
 
   it('stats_summary рахує найдовшу серію', async () => {
-    const { data, error } = await alice.client.rpc('stats_summary')
+    const { data, error } = await alice.client.rpc('stats_summary', { target_table: '9max' })
     expect(error).toBeNull()
     const row = data?.[0]
     expect(row?.total).toBe(6)
@@ -298,7 +298,7 @@ describe('SQL-функції', () => {
   })
 
   it('recent_attempts віддає хвіст у хронологічному порядку', async () => {
-    const { data, error } = await alice.client.rpc('recent_attempts', { window_size: 3 })
+    const { data, error } = await alice.client.rpc('recent_attempts', { target_table: '9max', window_size: 3 })
     expect(error).toBeNull()
     expect(data).toHaveLength(3)
     // Останні три за часом: rfi(11:00 немає) → iso 11:00, 11:01 і rfi 10:03
@@ -307,20 +307,20 @@ describe('SQL-функції', () => {
   })
 
   it('mistakes віддає лише помилки заданого сценарію', async () => {
-    const { data, error } = await alice.client.rpc('mistakes', { target_scenario: 'rfi' })
+    const { data, error } = await alice.client.rpc('mistakes', { target_table: '9max', target_scenario: 'rfi' })
     expect(error).toBeNull()
     expect(data).toHaveLength(1)
     expect(data?.[0]).toMatchObject({ scenario: 'rfi', hero_pos: 'UTG', chosen: 'raise' })
   })
 
   it('функції не показують чужих даних', async () => {
-    const { data } = await bob.client.rpc('stats_summary')
+    const { data } = await bob.client.rpc('stats_summary', { target_table: '9max' })
     expect(data?.[0]?.total).toBe(10)
     expect(data?.[0]?.correct).toBe(0)
   })
 
   it('анонім отримує порожні агрегати, а не чужі', async () => {
-    const { data } = await anon.rpc('stats_totals')
+    const { data } = await anon.rpc('stats_totals', { target_table: '9max' })
     expect(data ?? []).toHaveLength(0)
   })
 })
