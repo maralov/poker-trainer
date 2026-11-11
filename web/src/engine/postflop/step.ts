@@ -265,8 +265,10 @@ export function advance(ep: EpisodeState, rng: Rng): void {
 function betOptions(ep: EpisodeState): PostActionOption[] {
   return [
     { k: 'check', l: 'Чек', c: 'ghost' },
-    { k: 'b33', l: `Ставка 33% · ${r(ep.potBB * 0.33)}bb`, c: 'soft' },
-    { k: 'b66', l: `Ставка 66% · ${r(ep.potBB * 0.66)}bb`, c: 'primary' },
+    // Без слова «Ставка»: відсоток банку поруч із чеком сам каже, що це ставка,
+    // а коротший підпис влазить в один рядок вузької кнопки на телефоні.
+    { k: 'b33', l: `33% · ${r(ep.potBB * 0.33)}bb`, c: 'soft' },
+    { k: 'b66', l: `66% · ${r(ep.potBB * 0.66)}bb`, c: 'primary' },
   ]
 }
 

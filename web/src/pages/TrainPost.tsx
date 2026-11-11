@@ -2,7 +2,7 @@ import { useEffect } from 'react'
 
 import { Chips } from '../components/Chips'
 import type { PostScenario } from '../engine/postflop'
-import { PostBoard } from '../components/PostBoard'
+import { HandStory, PostBoard } from '../components/PostBoard'
 import { PostDrillBar } from '../components/PostDrillBar'
 import { PostVerdict } from '../components/PostVerdict'
 import { StatStrip } from '../components/StatStrip'
@@ -63,33 +63,37 @@ export function TrainPost() {
               <PostBoard episode={episode} frozen={feedback ? decision : null} />
             </div>
 
-            <div className="duel-side" ref={sideRef}>
-              {decision && !feedback && (
-                <div className="acts">
-                  {decision.options.map((o, i) => (
-                    <button
-                      type="button"
-                      key={o.k}
-                      className={`act-btn ${o.c}`}
-                      onClick={() => answer(o.k)}
-                    >
-                      {o.l}
-                      <small>клавіша {i + 1}</small>
-                    </button>
-                  ))}
-                </div>
-              )}
+            <div className="duel-side">
+              <HandStory episode={episode} />
+              {/* Прокрутка після відповіді — до вердикту, а не до історії над ним. */}
+              <div className="duel-answer" ref={sideRef}>
+                {decision && !feedback && (
+                  <div className="acts">
+                    {decision.options.map((o, i) => (
+                      <button
+                        type="button"
+                        key={o.k}
+                        className={`act-btn ${o.c}`}
+                        onClick={() => answer(o.k)}
+                      >
+                        {o.l}
+                        <small>клавіша {i + 1}</small>
+                      </button>
+                    ))}
+                  </div>
+                )}
 
-              {feedback && decision && (
-                <PostVerdict
-                  decision={decision}
-                  ok={feedback.ok}
-                  chosen={feedback.chosen}
-                  handOver={handOver}
-                  drill={drillTarget}
-                  onNext={continueHand}
-                />
-              )}
+                {feedback && decision && (
+                  <PostVerdict
+                    decision={decision}
+                    ok={feedback.ok}
+                    chosen={feedback.chosen}
+                    handOver={handOver}
+                    drill={drillTarget}
+                    onNext={continueHand}
+                  />
+                )}
+              </div>
             </div>
           </>
         )}

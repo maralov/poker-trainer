@@ -81,8 +81,11 @@ describe('PostReview', () => {
     render(<PostReview />)
 
     expect(screen.getByText('AKs')).toBeInTheDocument()
+    expect(screen.getByText('Сильна пара')).toBeInTheDocument()
     expect(screen.getByText(/терн · велика ставка/)).toBeInTheDocument()
-    expect(screen.getByText(/колл → має бути фолд/)).toBeInTheDocument()
+    // Що зробив (✗) і що мав (✓) — окремими елементами.
+    expect(screen.getByText('колл')).toHaveClass('no')
+    expect(screen.getByText('фолд')).toHaveClass('yes')
   })
 
   it('без руки в журналі показує хоча б категорію — старі записи не ламають екран', () => {
@@ -139,12 +142,14 @@ describe('PostReview', () => {
 
       fireEvent.click(await expandButton())
 
-      await waitFor(() => expect(screen.getByText('Ks7d2c9h')).toBeInTheDocument())
+      await waitFor(() => expect(screen.getByLabelText('Ks7d2c9h')).toBeInTheDocument())
       expect(fetchEpisode).toHaveBeenCalledWith('episode-3')
-      expect(screen.getByText('Ks7d2c')).toBeInTheDocument()
+      expect(screen.getByLabelText('Ks7d2c')).toBeInTheDocument()
+      expect(screen.getByLabelText('AsKs')).toBeInTheDocument()
       expect(screen.getByText('18bb')).toBeInTheDocument()
-      // Правильна дія показана лише для помилкового рішення.
-      expect(screen.getByText('—')).toBeInTheDocument()
+      // Правильна дія показана лише для помилкового рішення: стрілка одна на
+      // картку споту і одна на помилкову вулицю.
+      expect(document.querySelectorAll('.ep-step .arrow')).toHaveLength(1)
     })
 
     it('помилку мережі показує текстом, а не порожньою таблицею', async () => {

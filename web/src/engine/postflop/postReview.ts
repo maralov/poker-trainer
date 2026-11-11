@@ -149,6 +149,10 @@ export interface PostTopMistake {
   readonly chosen: string
   readonly correct: string
   readonly n: number
+  /** Контекст рішення: текстура флопу, позиція, скільки опонентів. */
+  readonly texture: string
+  readonly ip: boolean
+  readonly opps: number
   /** Знімок останнього такого споту — якщо журнал його має. */
   readonly board?: string
   readonly hand?: string
@@ -241,6 +245,9 @@ export function buildPostReview(progress: PostProgress): PostReview {
       chosen: act(e.ch),
       correct: act(e.co),
       n,
+      texture: TEX_LABEL[e.tex],
+      ip: e.ip === 1,
+      opps: e.n,
       ...(e.board === undefined ? {} : { board: e.board }),
       ...(e.hand === undefined ? {} : { hand: e.hand }),
       ...(e.ep === undefined ? {} : { ep: e.ep }),
