@@ -50,7 +50,7 @@ export function PostRules() {
           <div key={t.id}>
             <h4>{t.title}</h4>
             <div className="board-lbl">{t.source}</div>
-            <table>
+            <table className="rules">
               <thead>
                 <tr>
                   <th>Твоя рука</th>

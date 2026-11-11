@@ -1,7 +1,16 @@
 /** Стіл: сіти формату по колу, герой завжди внизу по центру. */
 
 import { TABLES } from '../engine/tables'
-import type { Position, SeatAction, Spot } from '../engine/types'
+import type { Position, SeatAction, Spot, TableId } from '../engine/types'
+
+/** Що показати під сітом: підпис дії, її CSS-клас і чи гравець уже поза роздачею. */
+export interface SeatView {
+  readonly label: string
+  readonly cls: string
+  readonly folded: boolean
+}
+
+const EMPTY: SeatView = { label: '', cls: '', folded: false }
 
 /** Підпис і CSS-клас дії на сіті. */
 const SEAT_TEXT: Readonly<Record<SeatAction, readonly [string, string]>> = {
@@ -11,29 +20,41 @@ const SEAT_TEXT: Readonly<Record<SeatAction, readonly [string, string]>> = {
   '3bet': ['3-бет 10bb', 'threebet'],
 }
 
-export function PokerTable({ spot }: { spot: Spot }) {
-  // Формат споту, а не перемикача: стіл малює те, що роздано.
-  const seats = TABLES[spot.table].seats
+/**
+ * Сам стіл без знання, звідки дані: префлоп і постфлоп описують сіти
+ * по-різному, а малюється це однаково.
+ */
+export function Felt({
+  table,
+  heroPos,
+  potBB,
+  seat,
+}: {
+  table: TableId
+  heroPos: Position
+  potBB: number
+  seat: (pos: Position) => SeatView
+}) {
+  const seats = TABLES[table].seats
   const n = seats.length
-  const start = seats.indexOf(spot.heroPos)
+  const start = seats.indexOf(heroPos)
 
   return (
     <div className="felt-wrap">
       <div className="felt">
         <div className="pot">
-          Банк<b>{spot.potBB} bb</b>
+          Банк<b>{potBB} bb</b>
         </div>
       </div>
       {Array.from({ length: n }, (_, i) => {
         const pos = seats[(start + i) % n] as Position
         // i=0 → 90° → низ по центру: герой завжди перед гравцем.
         const ang = ((90 + (i * 360) / n) * Math.PI) / 180
-        const action = spot.seats[pos]
-        const [label, cls] = action ? SEAT_TEXT[action] : ['', '']
+        const v = seat(pos)
         return (
           <div
             key={pos}
-            className={`seat${i === 0 ? ' hero' : ''}${action === 'fold' ? ' folded' : ''}`}
+            className={`seat${i === 0 ? ' hero' : ''}${v.folded ? ' folded' : ''}`}
             style={{
               left: `${50 + 43 * Math.cos(ang)}%`,
               top: `${50 + 40 * Math.sin(ang)}%`,
@@ -43,10 +64,27 @@ export function PokerTable({ spot }: { spot: Spot }) {
               {pos}
               {pos === 'BTN' && <span className="btn-chip">D</span>}
             </div>
-            <div className={`act ${cls}`}>{label}</div>
+            <div className={`act ${v.cls}`}>{v.label}</div>
           </div>
         )
       })}
     </div>
+  )
+}
+
+export function PokerTable({ spot }: { spot: Spot }) {
+  // Формат споту, а не перемикача: стіл малює те, що роздано.
+  return (
+    <Felt
+      table={spot.table}
+      heroPos={spot.heroPos}
+      potBB={spot.potBB}
+      seat={(pos) => {
+        const action = spot.seats[pos]
+        if (!action) return EMPTY
+        const [label, cls] = SEAT_TEXT[action]
+        return { label, cls, folded: action === 'fold' }
+      }}
+    />
   )
 }

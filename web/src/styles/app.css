@@ -482,10 +482,6 @@ h4:first-child {
 .cards.flop {
   margin-bottom: 22px;
 }
-/* Підпис під картами борду — інакше «Твої карти» злипається з ними. */
-.cards + .board-lbl {
-  margin-top: 16px;
-}
 .board-lbl {
   text-align: center;
   font-family: 'IBM Plex Mono', monospace;
@@ -1116,6 +1112,42 @@ td.m {
   .sc b.mono {
     font-size: 10.5px;
   }
+  .panel {
+    padding: 16px 12px;
+  }
+  /*
+   * Чотири колонки «Схеми рішень» у 360px не вміщаються: nowrap у «Ситуації»
+   * розпирав таблицю ширше екрана, і iOS зменшував усю сторінку. Тут рядок
+   * стає карткою: рука й дія вгорі, ситуація і пояснення під ними.
+   */
+  table.rules thead {
+    display: none;
+  }
+  table.rules tr {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    column-gap: 10px;
+    row-gap: 3px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  table.rules td {
+    padding: 0;
+    border: 0;
+  }
+  table.rules td.c {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    white-space: normal;
+  }
+  table.rules td.b {
+    grid-column: 2;
+    grid-row: 1;
+    text-align: right;
+  }
+  table.rules td.m {
+    grid-column: 1 / -1;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1201,6 +1233,13 @@ td.m {
 /* Відступи смужок — не інлайном, бо в режимі «одне вікно» вони інші. */
 .duel-board > .strip {
   margin-bottom: 20px;
+}
+.post-cards {
+  margin-top: 10px;
+}
+/* Підпис руки під бордом — інакше «Твої карти» злипається з картами борду. */
+.post-cards > div + div {
+  margin-top: 16px;
 }
 .stage + .strip {
   margin-top: 18px;
@@ -1302,6 +1341,15 @@ td.m {
   }
   .duel-board > .strip {
     margin-bottom: 16px;
+  }
+  /* Борд і рука поруч: стовпчиком під столом вони не вміщались у висоту вікна. */
+  .post-cards {
+    display: flex;
+    justify-content: center;
+    gap: 28px;
+  }
+  .post-cards > div + div {
+    margin-top: 0;
   }
 
   /*
