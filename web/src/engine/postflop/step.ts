@@ -400,7 +400,7 @@ export function answerPost(ep: EpisodeState, chosen: PostAction, rng: Rng): Post
 }
 
 /** Роздає епізод і одразу прокручує його до першого рішення героя. */
-export function startEpisode(options: BuildOptions = {}): EpisodeState {
+export function startEpisode(options: BuildOptions): EpisodeState {
   const rng = options.rng ?? Math.random
   const ep = buildEpisode(options)
   advance(ep, rng)

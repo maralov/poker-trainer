@@ -8,8 +8,9 @@
  */
 
 import { combos } from '../cards'
-import { BUCKET, HERO_CTX, ISO, OPEN_ORDER, RFI, S, VS_RAISE } from '../ranges'
-import { ACTION_ORDER, POSTFLOP_ORDER, type Hand, type Position, type Rng } from '../types'
+import { HERO_CTX, S } from '../ranges'
+import type { TableConfig } from '../tables'
+import { POSTFLOP_ORDER, type Hand, type Position, type Rng } from '../types'
 import { drawCards, drawHand, makeDeck } from './deck'
 import type { EpisodeSeat, EpisodeState } from './episode'
 import { evalHand, texture } from './evaluate'
@@ -27,6 +28,8 @@ export const BUILD = {
 } as const
 
 export interface BuildOptions {
+  /** Формат столу: звідки беруться позиції й діапазони. */
+  readonly table: TableConfig
   readonly rng?: Rng
   readonly strongShare?: number
   readonly maxTries?: number
@@ -40,7 +43,7 @@ export interface BuildOptions {
 }
 
 /** Позиції, які можуть бути героєм-агресором: ті, що відкривають пот, плюс SB. */
-const HERO_POSITIONS: readonly Position[] = [...OPEN_ORDER, 'SB']
+const heroPositions = (table: TableConfig): readonly Position[] => [...table.openOrder, 'SB']
 
 /**
  * Лімп-діапазон мікрополя. Джерела в референсі немає — це нові дані, визначені
@@ -69,12 +72,19 @@ function pickWeighted(range: ReadonlySet<Hand>, rng: Rng): Hand | null {
 }
 
 /** Одна спроба роздачі агресора. null — не склалось, викликач пробує ще. */
-function dealAggressor(scenario: 'rfi' | 'iso', rng: Rng, id: string): EpisodeState | null {
-  const heroPos = HERO_POSITIONS[Math.floor(rng() * HERO_POSITIONS.length)]
+function dealAggressor(
+  table: TableConfig,
+  scenario: 'rfi' | 'iso',
+  rng: Rng,
+  id: string,
+): EpisodeState | null {
+  const positions = heroPositions(table)
+  const heroPos = positions[Math.floor(rng() * positions.length)]
   if (heroPos === undefined) return null
 
-  const hi = ACTION_ORDER.indexOf(heroPos)
-  const bucket = BUCKET(heroPos)
+  const order = table.seats
+  const hi = order.indexOf(heroPos)
+  const vsRaise = table.vsRaise[table.bucket(heroPos)]
   const isIso = scenario === 'iso'
 
   // На UTG перед героєм нікого немає — лімпувати нікому. Той самий інваріант,
@@ -82,15 +92,15 @@ function dealAggressor(scenario: 'rfi' | 'iso', rng: Rng, id: string): EpisodeSt
   if (isIso && hi < 1) return null
 
   // Діапазон героя: для iso — ISO його позиції, для rfi — RFI.
-  const heroRange = isIso ? (ISO[heroPos] ?? new Set<Hand>()) : (RFI[heroPos] ?? new Set<Hand>())
+  const heroRange = (isIso ? table.iso[heroPos] : table.rfi[heroPos]) ?? new Set<Hand>()
 
   // Кандидати в опонентів. Для rfi — колери діють ПІСЛЯ опена, лише ті, у кого
   // непорожній діапазон захисту. Для iso — навпаки: лімпери діють ДО героя
   // (герой їх ізолює), інакше ізолювати нікого — той самий напрямок пулу,
   // що в spots.ts:123 (ACTION_ORDER.slice(0, hi)).
   const pool = isIso
-    ? ACTION_ORDER.slice(0, hi)
-    : ACTION_ORDER.slice(hi + 1).filter((p) => VS_RAISE[bucket].call[HERO_CTX(p)].size > 0)
+    ? order.slice(0, hi)
+    : order.slice(hi + 1).filter((p) => vsRaise.call[HERO_CTX(p)].size > 0)
   if (pool.length === 0) return null
 
   // Ваги кількості опонентів. rfi — з референсу: 50% один, 36% два, 14% три.
@@ -125,7 +135,7 @@ function dealAggressor(scenario: 'rfi' | 'iso', rng: Rng, id: string): EpisodeSt
   // Діапазон опонента залежно від сценарію: лімпер захищається LIMP_CALL,
   // колер проти рейзу — чартом захисту VS_RAISE.
   const villainRange = (pos: Position): ReadonlySet<Hand> =>
-    isIso ? LIMP_CALL : VS_RAISE[bucket].call[HERO_CTX(pos)]
+    isIso ? LIMP_CALL : vsRaise.call[HERO_CTX(pos)]
 
   for (const pos of ordered) {
     if (pos === heroPos) {
@@ -151,6 +161,7 @@ function dealAggressor(scenario: 'rfi' | 'iso', rng: Rng, id: string): EpisodeSt
 
   return {
     id,
+    table: table.id,
     line: 'aggressor',
     scenario,
     heroPos,
@@ -184,25 +195,27 @@ function dealAggressor(scenario: 'rfi' | 'iso', rng: Rng, id: string): EpisodeSt
  * проти його бакета: рука героя береться саме з того чарта, який тренує
  * префлопний vsraise, тож спот міг реально виникнути з вивченого префлопу.
  */
-function dealCaller(rng: Rng, id: string): EpisodeState | null {
-  const openerPos = HERO_POSITIONS[Math.floor(rng() * HERO_POSITIONS.length)]
+function dealCaller(table: TableConfig, rng: Rng, id: string): EpisodeState | null {
+  const positions = heroPositions(table)
+  const openerPos = positions[Math.floor(rng() * positions.length)]
   if (openerPos === undefined) return null
-  const bucket = BUCKET(openerPos)
+  const vsRaise = table.vsRaise[table.bucket(openerPos)]
 
-  const pool = ACTION_ORDER.slice(ACTION_ORDER.indexOf(openerPos) + 1).filter(
-    (p) => VS_RAISE[bucket].call[HERO_CTX(p)].size > 0,
+  const order = table.seats
+  const pool = order.slice(order.indexOf(openerPos) + 1).filter(
+    (p) => vsRaise.call[HERO_CTX(p)].size > 0,
   )
   const heroPos = pool[Math.floor(rng() * pool.length)]
   if (heroPos === undefined) return null
 
   const deck = makeDeck()
 
-  const openerHand = pickWeighted(RFI[openerPos] ?? new Set<Hand>(), rng)
+  const openerHand = pickWeighted(table.rfi[openerPos] ?? new Set<Hand>(), rng)
   if (openerHand === null) return null
   const openerHole = drawHand(deck, openerHand, rng)
   if (openerHole === null) return null
 
-  const heroHand = pickWeighted(VS_RAISE[bucket].call[HERO_CTX(heroPos)], rng)
+  const heroHand = pickWeighted(vsRaise.call[HERO_CTX(heroPos)], rng)
   if (heroHand === null) return null
   const heroHole = drawHand(deck, heroHand, rng)
   if (heroHole === null) return null
@@ -229,6 +242,7 @@ function dealCaller(rng: Rng, id: string): EpisodeState | null {
 
   return {
     id,
+    table: table.id,
     line: 'caller',
     scenario: 'vsraise',
     heroPos,
@@ -252,15 +266,20 @@ function dealCaller(rng: Rng, id: string): EpisodeState | null {
   }
 }
 
-const dealOnce = (scenario: PostScenario, rng: Rng, id: string): EpisodeState | null =>
-  scenario === 'vsraise' ? dealCaller(rng, id) : dealAggressor(scenario, rng, id)
+const dealOnce = (
+  table: TableConfig,
+  scenario: PostScenario,
+  rng: Rng,
+  id: string,
+): EpisodeState | null =>
+  scenario === 'vsraise' ? dealCaller(table, rng, id) : dealAggressor(table, scenario, rng, id)
 
 /**
  * Роздає епізод. Rejection sampling підтягує частку роздач, де опонент має
  * силу: інакше чек-рейзи й барелі траплялись би надто рідко, щоб їх тренувати.
  * Карти після прийняття не підмінюються — шоудаун лишається чесним.
  */
-export function buildEpisode(options: BuildOptions = {}): EpisodeState {
+export function buildEpisode(options: BuildOptions): EpisodeState {
   const rng = options.rng ?? Math.random
   const share = options.strongShare ?? BUILD.strongShare
   const tries = options.maxTries ?? BUILD.maxTries
@@ -271,7 +290,7 @@ export function buildEpisode(options: BuildOptions = {}): EpisodeState {
   let fallback: EpisodeState | null = null
 
   for (let i = 0; i < tries; i++) {
-    const ep = dealOnce(scenario, rng, id)
+    const ep = dealOnce(options.table, scenario, rng, id)
     if (ep === null) continue
     fallback ??= ep
     const hasStrong = ep.seats.some((s) => !s.hero && isStrong(evalHand(s.hole, ep.board).cat))

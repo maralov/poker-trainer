@@ -74,10 +74,12 @@ beforeEach(async () => {
   if (del.error) throw new Error(del.error.message)
   const clear = await admin.from('user_settings').delete().gte('updated_at', '1970-01-01')
   if (clear.error) throw new Error(clear.error.message)
+  const marks = await admin.from('user_reset').delete().gte('reset_at', '1970-01-01')
+  if (marks.error) throw new Error(marks.error.message)
 })
 
 const totalOf = async (a: Actor): Promise<number> => {
-  const { data, error } = await a.client.rpc('stats_summary')
+  const { data, error } = await a.client.rpc('stats_summary', { target_table: '9max' })
   if (error) throw new Error(error.message)
   return Number(data?.[0]?.total ?? 0)
 }
@@ -87,7 +89,7 @@ describe('reset_progress — мітка', () => {
     await alice.client.from('attempts').insert([attempt(60), attempt(50), attempt(40)])
     expect(await totalOf(alice)).toBe(3)
 
-    const { error } = await alice.client.rpc('reset_progress')
+    const { error } = await alice.client.rpc('reset_progress', { target_table: '9max' })
     expect(error).toBeNull()
 
     expect(await totalOf(alice), 'статистика обнулилась').toBe(0)
@@ -99,7 +101,7 @@ describe('reset_progress — мітка', () => {
 
   it('нові спроби після мітки рахуються', async () => {
     await alice.client.from('attempts').insert([attempt(60), attempt(50)])
-    await alice.client.rpc('reset_progress')
+    await alice.client.rpc('reset_progress', { target_table: '9max' })
     expect(await totalOf(alice)).toBe(0)
 
     await alice.client.from('attempts').insert(attempt(-1)) // на хвилину в майбутньому
@@ -107,11 +109,11 @@ describe('reset_progress — мітка', () => {
   })
 
   it('stats_summary повертає саму мітку — інтерфейс має що показати', async () => {
-    let { data } = await alice.client.rpc('stats_summary')
+    let { data } = await alice.client.rpc('stats_summary', { target_table: '9max' })
     expect(data?.[0]?.reset_at).toBeNull()
 
-    await alice.client.rpc('reset_progress')
-    ;({ data } = await alice.client.rpc('stats_summary'))
+    await alice.client.rpc('reset_progress', { target_table: '9max' })
+    ;({ data } = await alice.client.rpc('stats_summary', { target_table: '9max' }))
     expect(data?.[0]?.reset_at).not.toBeNull()
   })
 
@@ -120,26 +122,26 @@ describe('reset_progress — мітка', () => {
       attempt(60, { chosen: 'raise', correct: 'fold', hand: 'K5s' }),
       attempt(50, { chosen: 'raise', correct: 'fold', hand: 'J8o' }),
     ])
-    expect((await alice.client.rpc('mistakes', { target_scenario: 'rfi' })).data).toHaveLength(2)
-    expect((await alice.client.rpc('recent_attempts')).data).toHaveLength(2)
-    expect((await alice.client.rpc('stats_totals')).data).toHaveLength(1)
+    expect((await alice.client.rpc('mistakes', { target_table: '9max', target_scenario: 'rfi' })).data).toHaveLength(2)
+    expect((await alice.client.rpc('recent_attempts', { target_table: '9max' })).data).toHaveLength(2)
+    expect((await alice.client.rpc('stats_totals', { target_table: '9max' })).data).toHaveLength(1)
 
-    await alice.client.rpc('reset_progress')
+    await alice.client.rpc('reset_progress', { target_table: '9max' })
 
-    expect((await alice.client.rpc('mistakes', { target_scenario: 'rfi' })).data).toHaveLength(0)
-    expect((await alice.client.rpc('recent_attempts')).data).toHaveLength(0)
-    expect((await alice.client.rpc('stats_totals')).data).toHaveLength(0)
+    expect((await alice.client.rpc('mistakes', { target_table: '9max', target_scenario: 'rfi' })).data).toHaveLength(0)
+    expect((await alice.client.rpc('recent_attempts', { target_table: '9max' })).data).toHaveLength(0)
+    expect((await alice.client.rpc('stats_totals', { target_table: '9max' })).data).toHaveLength(0)
   })
 
   it('повторне скидання пересуває мітку вперед', async () => {
-    await alice.client.rpc('reset_progress')
-    const first = (await alice.client.rpc('stats_summary')).data?.[0]?.reset_at
+    await alice.client.rpc('reset_progress', { target_table: '9max' })
+    const first = (await alice.client.rpc('stats_summary', { target_table: '9max' })).data?.[0]?.reset_at
 
     await alice.client.from('attempts').insert(attempt(-1))
     expect(await totalOf(alice)).toBe(1)
 
-    await alice.client.rpc('reset_progress')
-    const second = (await alice.client.rpc('stats_summary')).data?.[0]?.reset_at
+    await alice.client.rpc('reset_progress', { target_table: '9max' })
+    const second = (await alice.client.rpc('stats_summary', { target_table: '9max' })).data?.[0]?.reset_at
     expect(new Date(second).getTime()).toBeGreaterThan(new Date(first).getTime())
   })
 
@@ -147,7 +149,7 @@ describe('reset_progress — мітка', () => {
     await alice.client.from('attempts').insert([attempt(60), attempt(50)])
     await bob.client.from('attempts').insert([attempt(60), attempt(50), attempt(40)])
 
-    await alice.client.rpc('reset_progress')
+    await alice.client.rpc('reset_progress', { target_table: '9max' })
 
     expect(await totalOf(alice)).toBe(0)
     expect(await totalOf(bob), 'у Боба все на місці').toBe(3)
@@ -157,7 +159,7 @@ describe('reset_progress — мітка', () => {
 describe('delete_all_progress — видалення', () => {
   it('стирає спроби назавжди і знімає мітку', async () => {
     await alice.client.from('attempts').insert([attempt(60), attempt(50)])
-    await alice.client.rpc('reset_progress')
+    await alice.client.rpc('reset_progress', { target_table: '9max' })
 
     const { data, error } = await alice.client.rpc('delete_all_progress')
     expect(error).toBeNull()
@@ -167,7 +169,7 @@ describe('delete_all_progress — видалення', () => {
     expect(count).toBe(0)
 
     // Мітка знята: наступні спроби рахуються, а не відсікаються старою міткою.
-    const summary = (await alice.client.rpc('stats_summary')).data?.[0]
+    const summary = (await alice.client.rpc('stats_summary', { target_table: '9max' })).data?.[0]
     expect(summary?.reset_at).toBeNull()
 
     await alice.client.from('attempts').insert(attempt(1))
@@ -219,32 +221,121 @@ describe('RLS нових об’єктів', () => {
     expect(upd.data ?? []).toHaveLength(0)
   })
 
-  it('користувач не бачить чужих налаштувань', async () => {
-    await alice.client.rpc('reset_progress')
-    await bob.client.rpc('reset_progress')
+  it('користувач не бачить чужих міток скидання', async () => {
+    await alice.client.rpc('reset_progress', { target_table: '9max' })
+    await bob.client.rpc('reset_progress', { target_table: '9max' })
 
-    const seen = await alice.client.from('user_settings').select('user_id')
+    const seen = await alice.client.from('user_reset').select('user_id')
     expect(seen.data).toHaveLength(1)
     expect(seen.data?.[0]?.user_id).toBe(alice.id)
   })
 
-  it('не можна створити налаштування від імені іншого', async () => {
+  it('не можна створити мітку від імені іншого', async () => {
     const { error } = await alice.client
-      .from('user_settings')
-      .insert({ user_id: bob.id, reset_at: new Date().toISOString() })
+      .from('user_reset')
+      .insert({ user_id: bob.id, table_size: '9max', reset_at: new Date().toISOString() })
     expect(error).not.toBeNull()
   })
 
   it('не можна пересунути чужу мітку', async () => {
-    await bob.client.rpc('reset_progress')
+    await bob.client.rpc('reset_progress', { target_table: '9max' })
+    const before = await bob.client.from('user_reset').select('reset_at').single()
     const upd = await alice.client
-      .from('user_settings')
-      .update({ reset_at: null })
+      .from('user_reset')
+      .update({ reset_at: new Date(0).toISOString() })
       .eq('user_id', bob.id)
       .select()
     expect(upd.data ?? []).toHaveLength(0)
 
-    const bobSettings = await bob.client.from('user_settings').select('reset_at').single()
-    expect(bobSettings.data?.reset_at).not.toBeNull()
+    const after = await bob.client.from('user_reset').select('reset_at').single()
+    expect(after.data?.reset_at).toBe(before.data?.reset_at)
+  })
+})
+
+describe('формати столу', () => {
+  it('скидання 6-max не чіпає 9-max', async () => {
+    await alice.client
+      .from('attempts')
+      .insert([attempt(30, { table_size: '9max' }), attempt(20, { table_size: '6max' })])
+
+    await alice.client.rpc('reset_progress', { target_table: '6max' })
+
+    const six = await alice.client.rpc('stats_summary', { target_table: '6max' })
+    const nine = await alice.client.rpc('stats_summary', { target_table: '9max' })
+    expect(Number(six.data?.[0]?.total)).toBe(0)
+    expect(six.data?.[0]?.reset_at).not.toBeNull()
+    expect(Number(nine.data?.[0]?.total)).toBe(1)
+    expect(nine.data?.[0]?.reset_at).toBeNull()
+  })
+
+  it('стат-функції не змішують формати', async () => {
+    await alice.client
+      .from('attempts')
+      .insert([
+        attempt(30, { table_size: '9max' }),
+        attempt(25, { table_size: '9max' }),
+        attempt(20, { table_size: '6max', hero_pos: 'HJ', chosen: 'raise' }),
+      ])
+
+    const six = await alice.client.rpc('stats_totals', { target_table: '6max' })
+    expect(six.data).toEqual([{ scenario: 'rfi', hero_pos: 'HJ', played: 1, correct: 0 }])
+    const nineRecent = await alice.client.rpc('recent_attempts', { target_table: '9max' })
+    expect(nineRecent.data).toHaveLength(2)
+    const sixMistakes = await alice.client.rpc('mistakes', {
+      target_table: '6max',
+      target_scenario: 'rfi',
+    })
+    expect(sixMistakes.data).toHaveLength(1)
+  })
+
+  it('змішаний батч зі старою подією черги проходить з defaultToNull: false', async () => {
+    // Так шле черга синку: подія, що лежала в localStorage до 6-max, не має поля.
+    const { error } = await alice.client
+      .from('attempts')
+      .upsert([attempt(10), attempt(5, { table_size: '6max', hero_pos: 'HJ' })], {
+        onConflict: 'user_id,client_id',
+        ignoreDuplicates: true,
+        defaultToNull: false,
+      })
+    expect(error).toBeNull()
+    const { data } = await alice.client.from('attempts').select('table_size').order('answered_at')
+    expect(data?.map((r) => r.table_size)).toEqual(['9max', '6max'])
+  })
+
+  it('спроба без table_size — 9-max', async () => {
+    await alice.client.from('attempts').insert([attempt(10)])
+    const { data } = await alice.client.from('attempts').select('table_size').single()
+    expect(data?.table_size).toBe('9max')
+  })
+
+  it('6-max відкидає позицію, якої немає за столом', async () => {
+    const hero = await alice.client
+      .from('attempts')
+      .insert([attempt(10, { table_size: '6max', hero_pos: 'LJ' })])
+    expect(hero.error).not.toBeNull()
+    const villain = await alice.client.from('attempts').insert([
+      attempt(10, {
+        table_size: '6max',
+        scenario: 'vsraise',
+        hero_pos: 'BB',
+        villain_pos: 'MP',
+      }),
+    ])
+    expect(villain.error).not.toBeNull()
+  })
+
+  it('невідомий формат база відкидає', async () => {
+    const { error } = await alice.client
+      .from('attempts')
+      .insert([attempt(10, { table_size: '8max' })])
+    expect(error).not.toBeNull()
+  })
+
+  it('delete_all_progress знімає мітки всіх форматів', async () => {
+    await alice.client.rpc('reset_progress', { target_table: '9max' })
+    await alice.client.rpc('reset_progress', { target_table: '6max' })
+    await alice.client.rpc('delete_all_progress')
+    const { data } = await alice.client.from('user_reset').select('table_size')
+    expect(data).toHaveLength(0)
   })
 })

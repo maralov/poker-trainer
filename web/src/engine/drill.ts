@@ -11,7 +11,8 @@ import { pick } from './cards'
 import { isHand } from './ranges'
 import type { PreProgress } from './progress'
 import { buildSpot } from './spots'
-import { ACTION_ORDER, type Hand, type Position, type Scenario, type Rng, type Spot } from './types'
+import type { TableConfig } from './tables'
+import type { Hand, Position, Scenario, Rng, Spot } from './types'
 
 export const DRILL = {
   /** Частка рук із пулу помилок. */
@@ -36,8 +37,6 @@ export interface PoolItem {
 export const drillKey = (scen: Scenario, pos: Position, hand: Hand): string =>
   `${scen}|${pos}|${hand}`
 
-const POSITION_SET: ReadonlySet<string> = new Set(ACTION_ORDER)
-
 /**
  * Чи можна побудувати спот цього сценарію з цієї позиції.
  * RFI з BB не існує — такий запис у журналі означав би пошкоджені дані,
@@ -49,13 +48,15 @@ function positionFits(scen: Scenario, pos: Position): boolean {
 }
 
 /** Пул помилок сценарію, крім тих, що вже закриті 5 правильними поспіль. */
-export function drillPool(progress: PreProgress, scen: Scenario): PoolItem[] {
+export function drillPool(progress: PreProgress, scen: Scenario, table: TableConfig): PoolItem[] {
   const streaks = progress.drill.streaks
+  // Позиція не з цього столу (LJ у 6-max) означала б пошкоджені дані.
+  const seated: ReadonlySet<string> = new Set(table.seats)
   const agg = new Map<string, number>()
 
   for (const e of progress.log) {
     if (e.s !== scen) continue
-    if (!POSITION_SET.has(e.p) || !isHand(e.h)) continue
+    if (!seated.has(e.p) || !isHand(e.h)) continue
     if (!positionFits(scen, e.p)) continue
     const k = `${e.p}|${e.h}`
     agg.set(k, (agg.get(k) ?? 0) + 1)
@@ -86,8 +87,8 @@ export function drillStats(progress: PreProgress, scen: Scenario): DrillStats {
 }
 
 /** Чи достатньо великий пул, щоб запускати drill. */
-export const canDrill = (progress: PreProgress, scen: Scenario): boolean =>
-  drillPool(progress, scen).length >= DRILL.minKeys
+export const canDrill = (progress: PreProgress, scen: Scenario, table: TableConfig): boolean =>
+  drillPool(progress, scen, table).length >= DRILL.minKeys
 
 /**
  * Наступний спот у drill-режимі. `null` — пул порожній, drill треба вимкнути.
@@ -95,9 +96,10 @@ export const canDrill = (progress: PreProgress, scen: Scenario): boolean =>
 export function drillSpot(
   progress: PreProgress,
   scen: Scenario,
+  table: TableConfig,
   rng: Rng = Math.random,
 ): Spot | null {
-  const pool = drillPool(progress, scen)
+  const pool = drillPool(progress, scen, table)
   if (!pool.length) return null
 
   if (rng() < DRILL.poolShare) {
@@ -105,11 +107,11 @@ export function drillSpot(
     const bag: PoolItem[] = []
     for (const it of pool) for (let i = 0; i < it.n; i++) bag.push(it)
     const it = pick(bag, rng)
-    return buildSpot({ force: { scen, heroPos: it.pos, hand: it.hand }, rng })
+    return buildSpot({ table, force: { scen, heroPos: it.pos, hand: it.hand }, rng })
   }
 
   const positions = [...new Set(pool.map((x) => x.pos))]
   const pos = pick(positions, rng)
   const ban = pool.filter((x) => x.pos === pos).map((x) => x.hand)
-  return buildSpot({ force: { scen, heroPos: pos, hand: null, ban }, rng })
+  return buildSpot({ table, force: { scen, heroPos: pos, hand: null, ban }, rng })
 }

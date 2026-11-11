@@ -13,7 +13,13 @@ import {
   type PreProgress,
   type RecentEntry,
 } from '../engine/progress'
-import { SCENARIO_KEYS, type Action, type Position, type Scenario } from '../engine/types'
+import {
+  SCENARIO_KEYS,
+  type Action,
+  type Position,
+  type Scenario,
+  type TableId,
+} from '../engine/types'
 import { supabase } from './supabase'
 
 /** Скільки помилок тягнемо на сценарій: вистачає і drill-пулу, і розбору. */
@@ -30,13 +36,14 @@ export interface ServerProgress {
   readonly resetAt: number | null
 }
 
-export async function fetchServerProgress(): Promise<ServerProgress> {
+export async function fetchServerProgress(table: TableId): Promise<ServerProgress> {
+  const t = { target_table: table }
   const [summary, totals, recent, ...mistakesPerScenario] = await Promise.all([
-    supabase.rpc('stats_summary'),
-    supabase.rpc('stats_totals'),
-    supabase.rpc('recent_attempts', { window_size: GATE.window }),
+    supabase.rpc('stats_summary', t),
+    supabase.rpc('stats_totals', t),
+    supabase.rpc('recent_attempts', { ...t, window_size: GATE.window }),
     ...SCENARIO_KEYS.map((s) =>
-      supabase.rpc('mistakes', { target_scenario: s, max_rows: MISTAKES_LIMIT }),
+      supabase.rpc('mistakes', { ...t, target_scenario: s, max_rows: MISTAKES_LIMIT }),
     ),
   ])
 
@@ -101,9 +108,9 @@ export async function fetchServerProgress(): Promise<ServerProgress> {
   return { progress: p, fetchedAt: Date.now(), resetAt }
 }
 
-/** Ставить мітку скидання. Спроби лишаються в базі — скидання оборотне. */
-export async function resetServerProgress(): Promise<void> {
-  const { error } = await supabase.rpc('reset_progress')
+/** Ставить мітку скидання формату. Спроби лишаються в базі — скидання оборотне. */
+export async function resetServerProgress(table: TableId): Promise<void> {
+  const { error } = await supabase.rpc('reset_progress', { target_table: table })
   if (error) throw new Error(error.message)
 }
 

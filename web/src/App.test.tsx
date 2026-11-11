@@ -13,6 +13,7 @@ import { emptyPostProgress } from './engine/postflop'
 import { emptyPreProgress } from './engine/progress'
 import { usePostSessionStore } from './store/postSessionStore'
 import { useProgressStore } from './store/progressStore'
+import { setTableProgress } from './test/progress'
 
 const openStage2 = () => {
   fireEvent.click(screen.getByRole('button', { name: /Етап 2/ }))
@@ -20,14 +21,13 @@ const openStage2 = () => {
 
 describe('App', () => {
   beforeEach(() => {
-    useProgressStore.setState({
+    setTableProgress({
       pre: emptyPreProgress(),
       post: emptyPostProgress(),
       postUnlocked: true,
       postSeen: true,
-      legacyImported: null,
-      legacyChecked: true,
     })
+    useProgressStore.setState({ legacyImported: null, legacyChecked: true })
     usePostSessionStore.setState({
       episode: null,
       decision: null,
@@ -81,7 +81,7 @@ describe('App', () => {
   })
 
   it('закритий Етап 2 показує замок і не показує вкладок', () => {
-    useProgressStore.setState({ postUnlocked: false })
+    setTableProgress({ postUnlocked: false })
     render(<App />)
     openStage2()
 

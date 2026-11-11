@@ -23,7 +23,14 @@ export const queue = new SyncQueue<QueuedAttempt>({
   send: async (batch) =>
     await supabase
       .from('attempts')
-      .upsert([...batch], { onConflict: 'user_id,client_id', ignoreDuplicates: true }),
+      .upsert([...batch], {
+        onConflict: 'user_id,client_id',
+        ignoreDuplicates: true,
+        // Подія, що лежала в черзі до 6-max, не має table_size. Без цього
+        // PostgREST підставив би NULL замість дефолту '9max', і NOT NULL
+        // відкинув би весь батч.
+        defaultToNull: false,
+      }),
 })
 
 export interface SyncState {
@@ -100,7 +107,8 @@ export function startSync(): () => void {
     if (state.session && !prev.session) {
       queue.resetBackoff()
       // Перший вхід на цьому пристрої: локальна історія їде на сервер.
-      migrateLocalHistory(useProgressStore.getState().pre)
+      const tables = useProgressStore.getState().tables
+      migrateLocalHistory({ '9max': tables['9max'].pre, '6max': tables['6max'].pre })
       void run(true)
     }
   })

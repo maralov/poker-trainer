@@ -12,6 +12,7 @@ import { emptyPreProgress } from '../engine/progress'
 import { usePostSessionStore } from '../store/postSessionStore'
 import { useProgressStore } from '../store/progressStore'
 import { TrainPost } from './TrainPost'
+import { setTableProgress, tableProgress } from '../test/progress'
 
 describe('TrainPost', () => {
   beforeEach(() => {
@@ -25,14 +26,13 @@ describe('TrainPost', () => {
       drillOn: false,
       drillTarget: null,
     })
-    useProgressStore.setState({
+    setTableProgress({
       pre: emptyPreProgress(),
       post: emptyPostProgress(),
       postUnlocked: false,
       postSeen: false,
-      legacyImported: null,
-      legacyChecked: true,
     })
+    useProgressStore.setState({ legacyImported: null, legacyChecked: true })
   })
 
   it('роздає руку при монтуванні і показує кнопки дій', () => {
@@ -97,7 +97,9 @@ describe('TrainPost', () => {
   })
 
   it('смужка цифр показує точність', () => {
-    useProgressStore.setState({ post: { ...emptyPostProgress(), total: 4, correct: 3, best: 2 } })
+    setTableProgress({
+      post: { ...emptyPostProgress(), total: 4, correct: 3, best: 2 },
+    })
     render(<TrainPost />)
 
     expect(screen.getByText('точність')).toBeInTheDocument()
@@ -182,7 +184,7 @@ describe('TrainPost', () => {
           at,
         })
       }
-      useProgressStore.setState({ post })
+      setTableProgress({ post })
     }
 
     it('без відкритих патернів drill не запускається', () => {
@@ -205,7 +207,7 @@ describe('TrainPost', () => {
 
       const verdict = container.querySelector('.verdict')
       expect(verdict?.textContent).toContain(POST_FIX.riverBluff.title)
-      const post = useProgressStore.getState().post
+      const post = tableProgress().post
       expect(post.drillLog).toHaveLength(1)
       // Дві засіяні помилки — звичайна гра; drill-відповідь total не рухає.
       expect(post.total).toBe(2)

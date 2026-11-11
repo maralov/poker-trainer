@@ -4,6 +4,9 @@ import { mulberry32 } from '../test/rng'
 import { DRILL, canDrill, drillPool, drillSpot, drillStats } from './drill'
 import { emptyPreProgress, type MistakeEntry, type PreProgress } from './progress'
 import type { Action, Hand, Position, Scenario } from './types'
+import { TABLES } from './tables'
+
+const T9 = TABLES['9max']
 
 /** Прогрес із заданими помилками: [позиція, рука, скільки разів]. */
 function withMistakes(
@@ -34,7 +37,7 @@ describe('drillPool', () => {
       ['CO', 'K5s', 5],
       ['MP', 'A9o', 3],
     ])
-    expect(drillPool(p, 'rfi')).toEqual([
+    expect(drillPool(p, 'rfi', T9)).toEqual([
       { pos: 'CO', hand: 'K5s', n: 5 },
       { pos: 'MP', hand: 'A9o', n: 3 },
       { pos: 'BTN', hand: '72o', n: 2 },
@@ -44,8 +47,8 @@ describe('drillPool', () => {
   it('не змішує сценарії', () => {
     const p = withMistakes('rfi', [['BTN', '72o', 3]])
     p.log.push(...withMistakes('iso', [['CO', 'K5s', 4]]).log)
-    expect(drillPool(p, 'rfi').map((x) => x.hand)).toEqual(['72o'])
-    expect(drillPool(p, 'iso').map((x) => x.hand)).toEqual(['K5s'])
+    expect(drillPool(p, 'rfi', T9).map((x) => x.hand)).toEqual(['72o'])
+    expect(drillPool(p, 'iso', T9).map((x) => x.hand)).toEqual(['K5s'])
   })
 
   it('рука виходить з пулу після 5 правильних поспіль', () => {
@@ -53,13 +56,13 @@ describe('drillPool', () => {
       ['BTN', '72o', 3],
       ['CO', 'K5s', 2],
     ])
-    expect(drillPool(p, 'rfi')).toHaveLength(2)
+    expect(drillPool(p, 'rfi', T9)).toHaveLength(2)
 
     p.drill.streaks['rfi|BTN|72o'] = DRILL.retire - 1
-    expect(drillPool(p, 'rfi'), '4 правильних — ще в пулі').toHaveLength(2)
+    expect(drillPool(p, 'rfi', T9), '4 правильних — ще в пулі').toHaveLength(2)
 
     p.drill.streaks['rfi|BTN|72o'] = DRILL.retire
-    const pool = drillPool(p, 'rfi')
+    const pool = drillPool(p, 'rfi', T9)
     expect(pool).toHaveLength(1)
     expect(pool[0]?.hand).toBe('K5s')
   })
@@ -69,13 +72,13 @@ describe('drillPool', () => {
       ['BB', 'AA', 4],
       ['BTN', '72o', 2],
     ])
-    expect(drillPool(p, 'rfi').map((x) => x.pos)).toEqual(['BTN'])
+    expect(drillPool(p, 'rfi', T9).map((x) => x.pos)).toEqual(['BTN'])
   })
 
   it('відкидає пошкоджені руки з localStorage', () => {
     const p = withMistakes('rfi', [['BTN', '72o', 2]])
     p.log.push({ s: 'rfi', p: 'BTN' as Position, h: 'ZZZ', ch: 'raise', co: 'fold', t: 1 })
-    expect(drillPool(p, 'rfi')).toHaveLength(1)
+    expect(drillPool(p, 'rfi', T9)).toHaveLength(1)
   })
 })
 
@@ -122,9 +125,9 @@ describe('canDrill', () => {
       ['BTN', '72o', 9],
       ['CO', 'K5s', 9],
     ])
-    expect(canDrill(p, 'rfi')).toBe(false)
+    expect(canDrill(p, 'rfi', T9)).toBe(false)
     p.log.push(...withMistakes('rfi', [['MP', 'A9o', 1]]).log)
-    expect(canDrill(p, 'rfi')).toBe(true)
+    expect(canDrill(p, 'rfi', T9)).toBe(true)
   })
 })
 
@@ -136,14 +139,14 @@ describe('drillSpot', () => {
   ])
 
   it('порожній пул повертає null', () => {
-    expect(drillSpot(emptyPreProgress(), 'rfi', mulberry32(1))).toBeNull()
+    expect(drillSpot(emptyPreProgress(), 'rfi', T9, mulberry32(1))).toBeNull()
   })
 
   it('приблизно 70% рук з пулу, 30% контролів', () => {
     let fromPool = 0
     let control = 0
     for (let i = 1; i <= 2000; i++) {
-      const q = drillSpot(pool, 'rfi', mulberry32(i))
+      const q = drillSpot(pool, 'rfi', T9, mulberry32(i))
       expect(q).not.toBeNull()
       if (!q) continue
       if (q.isControl) control++
@@ -161,7 +164,7 @@ describe('drillSpot', () => {
       ['A9o', 'MP'],
     ])
     for (let i = 1; i <= 500; i++) {
-      const q = drillSpot(pool, 'rfi', mulberry32(i))
+      const q = drillSpot(pool, 'rfi', T9, mulberry32(i))
       if (!q || q.isControl) continue
       expect(q.heroPos).toBe(expected.get(q.hand))
       expect(q.drill).toBe(true)
@@ -171,7 +174,7 @@ describe('drillSpot', () => {
   it('вибір з пулу зважений за частотою помилок', () => {
     const counts = new Map<string, number>()
     for (let i = 1; i <= 4000; i++) {
-      const q = drillSpot(pool, 'rfi', mulberry32(i))
+      const q = drillSpot(pool, 'rfi', T9, mulberry32(i))
       if (!q || q.isControl) continue
       counts.set(q.hand, (counts.get(q.hand) ?? 0) + 1)
     }
@@ -192,7 +195,7 @@ describe('drillSpot', () => {
     ])
     let seen = 0
     for (let i = 1; i <= 2000; i++) {
-      const q = drillSpot(pool, 'rfi', mulberry32(i))
+      const q = drillSpot(pool, 'rfi', T9, mulberry32(i))
       if (!q || !q.isControl) continue
       seen++
       expect(q.hand).not.toBe(banned.get(q.heroPos))

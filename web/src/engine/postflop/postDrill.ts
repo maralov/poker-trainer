@@ -7,6 +7,7 @@
  * classifyPostMistake. Інакше класифікатор розбору і drill розійшлися б.
  */
 
+import type { TableConfig } from '../tables'
 import type { Rng } from '../types'
 import type { EpisodeState } from './episode'
 import { POST_DRILL_LOG_LIMIT, type PostMistakeEntry, type PostProgress } from './postProgress'
@@ -206,13 +207,23 @@ const SCENARIOS: readonly PostScenario[] = ['rfi', 'iso', 'vsraise']
  */
 export function startDrillEpisode(
   target: PostDrillTarget,
-  options: { readonly rng?: Rng; readonly id?: string; readonly maxEpisodes?: number } = {},
+  options: {
+    readonly table: TableConfig
+    readonly rng?: Rng
+    readonly id?: string
+    readonly maxEpisodes?: number
+  },
 ): EpisodeState | null {
   const rng = options.rng ?? Math.random
   const max = options.maxEpisodes ?? POST_DRILL.maxEpisodes
   for (let i = 0; i < max; i++) {
     const scenario = SCENARIOS[Math.floor(rng() * SCENARIOS.length)] ?? 'rfi'
-    const ep = startEpisode({ rng, scenario, ...(options.id === undefined ? {} : { id: options.id }) })
+    const ep = startEpisode({
+      table: options.table,
+      rng,
+      scenario,
+      ...(options.id === undefined ? {} : { id: options.id }),
+    })
     for (let d = heroDecision(ep); d !== null; d = heroDecision(ep)) {
       if (fitsTarget(target, d)) return ep
       answerPost(ep, d.correct, rng)
@@ -227,7 +238,7 @@ export function startDrillEpisode(
  */
 export function nextDrillSpot(
   pool: readonly PostDrillPoolItem[],
-  options: { readonly rng?: Rng; readonly id?: string } = {},
+  options: { readonly table: TableConfig; readonly rng?: Rng; readonly id?: string },
 ): { readonly episode: EpisodeState; readonly target: PostDrillTarget } | null {
   const rng = options.rng ?? Math.random
   const tried = new Set<PostFixKey>()

@@ -16,9 +16,9 @@ export default defineConfig({
       // Іконки й так ловить globPatterns нижче; інакше вони в precache двічі.
       includeManifestIcons: false,
       manifest: {
-        name: 'Покер-тренажер · 9-max кеш',
+        name: 'Покер-тренажер · кеш 9-max і 6-max',
         short_name: 'Покер',
-        description: 'Тренажер префлопу й постфлопу 9-max кешу',
+        description: 'Тренажер префлопу й постфлопу кешу 9-max і 6-max',
         lang: 'uk',
         start_url: '/',
         display: 'standalone',

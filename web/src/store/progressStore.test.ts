@@ -8,7 +8,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { emptyPostProgress, type PostAnswerInput } from '../engine/postflop'
 import { emptyPreProgress, type AnswerInput } from '../engine/progress'
-import { useProgressStore } from './progressStore'
+import { setTableProgress, tableProgress } from '../test/progress'
+import { emptyTableProgress, useProgressStore } from './progressStore'
 
 const basePost: PostAnswerInput = {
   street: 'flop',
@@ -34,36 +35,35 @@ const basePre: AnswerInput = {
 describe('useProgressStore', () => {
   beforeEach(() => {
     useProgressStore.setState({
-      pre: emptyPreProgress(),
-      post: emptyPostProgress(),
-      postUnlocked: false,
-      postSeen: false,
+      tables: { '9max': emptyTableProgress(), '6max': emptyTableProgress() },
       legacyImported: null,
       legacyChecked: true,
     })
   })
 
   it('answerPost пише в post і не чіпає pre', () => {
-    const preBefore = useProgressStore.getState().pre
+    const preBefore = tableProgress().pre
 
-    const result = useProgressStore.getState().answerPost(basePost, 0)
+    const result = useProgressStore.getState().answerPost('9max', basePost, 0)
 
     expect(result.ok).toBe(true)
     expect(result.streak).toBe(1)
-    expect(useProgressStore.getState().post.total).toBe(1)
-    expect(useProgressStore.getState().post.correct).toBe(1)
+    expect(tableProgress().post.total).toBe(1)
+    expect(tableProgress().post.correct).toBe(1)
     // Той самий обʼєкт — answerPost жодного разу не торкнувся pre.
-    expect(useProgressStore.getState().pre).toBe(preBefore)
+    expect(tableProgress().pre).toBe(preBefore)
   })
 
   it('помилка обнуляє серію і потрапляє в журнал', () => {
-    useProgressStore.getState().answerPost(basePost, 0)
-    const result = useProgressStore.getState().answerPost({ ...basePost, chosen: 'check' }, 1)
+    useProgressStore.getState().answerPost('9max', basePost, 0)
+    const result = useProgressStore
+      .getState()
+      .answerPost('9max', { ...basePost, chosen: 'check' }, 1)
 
     expect(result.ok).toBe(false)
     expect(result.streak).toBe(0)
 
-    const { post } = useProgressStore.getState()
+    const { post } = tableProgress()
     expect(post.total).toBe(2)
     expect(post.correct).toBe(1)
     expect(post.log).toHaveLength(1)
@@ -72,27 +72,49 @@ describe('useProgressStore', () => {
   })
 
   it('resetPost чистить постфлоп, лишаючи префлоп і відкриті ворота', () => {
-    useProgressStore.setState({ postUnlocked: true })
-    useProgressStore.getState().answer(basePre, 0)
-    useProgressStore.getState().answerPost(basePost, 0)
+    setTableProgress({ postUnlocked: true })
+    useProgressStore.getState().answer('9max', basePre, 0)
+    useProgressStore.getState().answerPost('9max', basePost, 0)
 
-    useProgressStore.getState().resetPost()
+    useProgressStore.getState().resetPost('9max')
 
-    const state = useProgressStore.getState()
+    const state = tableProgress()
     expect(state.post).toEqual(emptyPostProgress())
     expect(state.pre.total).toBe(1)
     expect(state.postUnlocked).toBe(true)
   })
 
   it('повний reset чистить обидва розділи', () => {
-    useProgressStore.getState().answer(basePre, 0)
-    useProgressStore.getState().answerPost(basePost, 0)
+    useProgressStore.getState().answer('9max', basePre, 0)
+    useProgressStore.getState().answerPost('9max', basePost, 0)
 
-    useProgressStore.getState().reset()
+    useProgressStore.getState().reset('9max')
 
-    const state = useProgressStore.getState()
+    const state = tableProgress()
     expect(state.pre).toEqual(emptyPreProgress())
     expect(state.post).toEqual(emptyPostProgress())
+  })
+
+  it('формати не змішуються: відповідь у 6-max не чіпає 9-max', () => {
+    useProgressStore.getState().answer('9max', basePre, 0)
+    const nineBefore = tableProgress('9max')
+
+    useProgressStore.getState().answer('6max', basePre, 0)
+    useProgressStore.getState().answerPost('6max', basePost, 0)
+
+    expect(tableProgress('9max')).toBe(nineBefore)
+    expect(tableProgress('6max').pre.total).toBe(1)
+    expect(tableProgress('6max').post.total).toBe(1)
+  })
+
+  it('reset одного формату не чіпає інший', () => {
+    useProgressStore.getState().answer('9max', basePre, 0)
+    useProgressStore.getState().answer('6max', basePre, 0)
+
+    useProgressStore.getState().reset('6max')
+
+    expect(tableProgress('6max').pre.total).toBe(0)
+    expect(tableProgress('9max').pre.total).toBe(1)
   })
 })
 
@@ -137,7 +159,7 @@ describe('useProgressStore persist migrate', () => {
       mod.useProgressStore.persist.onFinishHydration(() => resolve())
     })
 
-    const state = mod.useProgressStore.getState()
+    const state = mod.useProgressStore.getState().tables['9max']
     expect(state.pre.total).toBe(5)
     expect(state.pre.correct).toBe(3)
     expect(state.postUnlocked).toBe(true)
@@ -163,8 +185,43 @@ describe('useProgressStore persist migrate', () => {
       mod.useProgressStore.persist.onFinishHydration(() => resolve())
     })
 
-    const post = mod.useProgressStore.getState().post
+    const post = mod.useProgressStore.getState().tables['9max'].post
     expect(post.total).toBe(7)
     expect(post.drillLog).toEqual([])
+  })
+
+  it('версія 3 стає прогресом 9-max, 6-max — порожній', async () => {
+    const pre = { ...emptyPreProgress(), total: 12, correct: 9 }
+    localStorage.setItem(
+      'poker_trainer_web_v1',
+      JSON.stringify({
+        state: {
+          pre,
+          post: { ...emptyPostProgress(), total: 3 },
+          postUnlocked: true,
+          postSeen: true,
+          legacyImported: null,
+          legacyChecked: true,
+        },
+        version: 3,
+      }),
+    )
+
+    const mod = await import('./progressStore')
+    await new Promise<void>((resolve) => {
+      if (mod.useProgressStore.persist.hasHydrated()) {
+        resolve()
+        return
+      }
+      mod.useProgressStore.persist.onFinishHydration(() => resolve())
+    })
+
+    const { tables, legacyChecked } = mod.useProgressStore.getState()
+    expect(tables['9max'].pre.total).toBe(12)
+    expect(tables['9max'].post.total).toBe(3)
+    expect(tables['9max'].postUnlocked).toBe(true)
+    expect(tables['6max']).toEqual(emptyTableProgress())
+    expect(legacyChecked).toBe(true)
+    expect('pre' in mod.useProgressStore.getState()).toBe(false)
   })
 })

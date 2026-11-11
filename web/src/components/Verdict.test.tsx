@@ -12,13 +12,16 @@ import { describe, expect, it } from 'vitest'
 import { buildSpot } from '../engine/spots'
 import type { Position, Scenario } from '../engine/types'
 import { Verdict } from './Verdict'
+import { TABLES } from '../engine/tables'
+
+const T9 = TABLES['9max']
 
 /**
  * Рендер із запитами в межах свого контейнера: в одному тесті вердикт
  * рендериться двічі, і глобальний пошук знаходив би легенду першого.
  */
 const show = (scen: Scenario, heroPos: Position, hand: string) => {
-  const spot = buildSpot({ force: { scen, heroPos, hand } })
+  const spot = buildSpot({ table: T9, force: { scen, heroPos, hand } })
   const { container } = render(<Verdict spot={spot} ok={false} handStreak={0} onNext={() => {}} />)
   const legend = container.querySelector('.legend')
   if (!(legend instanceof HTMLElement)) throw new Error('легенди немає у вердикті')

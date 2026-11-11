@@ -277,7 +277,7 @@ describe('postflop_mistakes', () => {
       decision({ episode_id: episode, chosen: 'b66', correct: 'check', hand: 'QJs' }),
     )
 
-    const { data, error } = await alice.client.rpc('postflop_mistakes', { max_rows: 10 })
+    const { data, error } = await alice.client.rpc('postflop_mistakes', { target_table: '9max', max_rows: 10 })
     expect(error).toBeNull()
     expect(data).toHaveLength(1)
     expect(data?.[0]?.episode_id).toBe(episode)
@@ -310,10 +310,10 @@ describe('Drill', () => {
       drill({ chosen: 'check', correct: 'check' }),
     ])
 
-    const { data: summary } = await alice.client.rpc('postflop_summary')
+    const { data: summary } = await alice.client.rpc('postflop_summary', { target_table: '9max' })
     expect(Number(summary?.[0]?.total)).toBe(1)
 
-    const { data: totals } = await alice.client.rpc('postflop_totals')
+    const { data: totals } = await alice.client.rpc('postflop_totals', { target_table: '9max' })
     const street = totals?.find((r) => r.dimension === 'street')
     expect(Number(street?.played)).toBe(1)
   })
@@ -323,7 +323,7 @@ describe('Drill', () => {
       game({ chosen: 'b66', correct: 'check' }),
       drill({ chosen: 'b66', correct: 'check' }),
     ])
-    const { data } = await alice.client.rpc('postflop_mistakes', { max_rows: 10 })
+    const { data } = await alice.client.rpc('postflop_mistakes', { target_table: '9max', max_rows: 10 })
     expect(data?.map((r) => r.is_drill).sort()).toEqual([false, true])
   })
 
@@ -335,7 +335,7 @@ describe('Drill', () => {
     ])
     await bob.client.from('postflop_attempts').insert(drill())
 
-    const { data } = await alice.client.rpc('postflop_drill_tail', { max_rows: 10 })
+    const { data } = await alice.client.rpc('postflop_drill_tail', { target_table: '9max', max_rows: 10 })
     expect(data?.map((r) => [r.drill_fix, r.is_correct])).toEqual([
       ['riverBluff', false],
       ['riverBluff', true],
@@ -356,5 +356,33 @@ describe('Drill', () => {
     expect(error).toBeNull()
     const { data } = await admin.from('postflop_attempts').select('is_drill').order('is_drill')
     expect(data?.map((r) => r.is_drill)).toEqual([false, true])
+  })
+})
+
+describe('формати столу', () => {
+  it('зрізи, підсумок і журнал помилок не змішують формати', async () => {
+    await alice.client.from('postflop_attempts').insert([
+      decision({ table_size: '9max' }),
+      decision({ table_size: '6max', hero_pos: 'HJ', chosen: 'b66', correct: 'check' }),
+    ])
+
+    const six = await alice.client.rpc('postflop_summary', { target_table: '6max' })
+    expect(Number(six.data?.[0]?.total)).toBe(1)
+    expect(Number(six.data?.[0]?.correct)).toBe(0)
+
+    const nine = await alice.client.rpc('postflop_mistakes', { target_table: '9max', max_rows: 10 })
+    expect(nine.data).toHaveLength(0)
+    const sixMistakes = await alice.client.rpc('postflop_mistakes', {
+      target_table: '6max',
+      max_rows: 10,
+    })
+    expect(sixMistakes.data).toHaveLength(1)
+  })
+
+  it('6-max відкидає позицію героя, якої немає за столом', async () => {
+    const { error } = await alice.client
+      .from('postflop_attempts')
+      .insert(decision({ table_size: '6max', hero_pos: 'MP' }))
+    expect(error).not.toBeNull()
   })
 })

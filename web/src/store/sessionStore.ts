@@ -12,6 +12,7 @@ import { buildSpot } from '../engine/spots'
 import type { Action, Scenario, Spot } from '../engine/types'
 import { useProgressStore } from './progressStore'
 import { getStatsProgress } from './statsSource'
+import { currentTable, useTableStore } from './tableStore'
 
 export interface AnswerFeedback {
   readonly ok: boolean
@@ -48,10 +49,11 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
 
   next: () => {
     const { drillScen, activeScenarios } = get()
-    const pre = getStatsProgress()
+    const table = currentTable()
+    const pre = getStatsProgress(table.id)
 
     if (drillScen) {
-      const spot = drillSpot(pre, drillScen)
+      const spot = drillSpot(pre, drillScen, table)
       // Пул вичерпався просто зараз — тихо виходимо з drill, а не показуємо порожньо.
       if (spot) {
         set({ spot, feedback: null, chosen: null })
@@ -61,7 +63,7 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
     }
 
     set({
-      spot: buildSpot({ scenarios: activeScenarios, missed: pre.missed }),
+      spot: buildSpot({ table, scenarios: activeScenarios, missed: pre.missed }),
       feedback: null,
       chosen: null,
     })
@@ -71,8 +73,12 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
     const { spot, feedback, streak } = get()
     if (!spot || feedback) return
 
-    const wasUnlocked = useProgressStore.getState().postUnlocked
+    // Формат споту, а не поточного перемикача: між роздачею і відповіддю
+    // формат міг змінитись, а подія має лягти туди, де спот зіграно.
+    const table = spot.table
+    const wasUnlocked = useProgressStore.getState().tables[table].postUnlocked
     const result = useProgressStore.getState().answer(
+      table,
       {
         scen: spot.scen,
         heroPos: spot.heroPos,
@@ -84,12 +90,13 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
       },
       streak,
     )
-    const justUnlocked = !wasUnlocked && useProgressStore.getState().postUnlocked
+    const justUnlocked = !wasUnlocked && useProgressStore.getState().tables[table].postUnlocked
 
     // Подія йде в чергу незалежно від того, чи є мережа і чи є логін:
     // тренування не має залежати від синку.
     recordAttempt({
       client_id: crypto.randomUUID(),
+      table_size: table,
       stage: 'pre',
       scenario: spot.scen,
       hero_pos: spot.heroPos,
@@ -125,10 +132,12 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
 
   startDrill: (scen) => {
     // Вікно точності drill рахується з нуля при кожному запуску.
+    const table = useTableStore.getState().table
     useProgressStore.setState((state) => {
-      const pre = structuredClone(state.pre)
+      const cur = state.tables[table]
+      const pre = structuredClone(cur.pre)
       pre.drill.recent[scen] = []
-      return { pre }
+      return { tables: { ...state.tables, [table]: { ...cur, pre } } }
     })
     set({ drillScen: scen })
     get().next()
@@ -144,3 +153,11 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
     get().next()
   },
 }))
+
+// Зміна формату: поточний спот належить іншому столу — роздаємо новий без
+// запису відповіді. Drill теж вимикається: пул помилок у кожного формату свій.
+useTableStore.subscribe((state, prev) => {
+  if (state.table !== prev.table && useSessionStore.getState().spot !== null) {
+    useSessionStore.getState().resetSession()
+  }
+})

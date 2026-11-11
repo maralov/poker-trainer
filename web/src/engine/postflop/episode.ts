@@ -6,7 +6,7 @@
  * його перед викликом, а рушій лишається синхронним і без копій на кожен крок.
  */
 
-import type { Card, Position } from '../types'
+import type { Card, Position, TableId } from '../types'
 import type { PostLine, PostScenario, Street, Texture } from './types'
 
 export interface EpisodeSeat {
@@ -43,6 +43,8 @@ export interface EpisodeState {
    * свій через BuildOptions.id.
    */
   readonly id: string
+  /** Формат столу, у якому роздано: з ним подія піде в журнал. */
+  readonly table: TableId
   readonly line: PostLine
   readonly scenario: PostScenario
   readonly heroPos: Position

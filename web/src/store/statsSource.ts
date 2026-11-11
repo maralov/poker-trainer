@@ -15,32 +15,42 @@ import type { PreProgress } from '../engine/progress'
 import { useAuthStore } from './authStore'
 import { mergeProgress } from './mergeProgress'
 import { useProgressStore } from './progressStore'
+import { ofTable, useTableStore } from './tableStore'
+import type { TableId } from '../engine/types'
 
 interface ServerStatsState {
+  /** Формат, для якого завантажено progress; дані іншого формату не показуємо. */
+  table: TableId | null
   progress: PreProgress | null
   loading: boolean
   error: string | null
   fetchedAt: number | null
   /** Мітка скидання, ms; null — рахується вся історія. */
   resetAt: number | null
-  refresh: () => Promise<void>
+  refresh: (table: TableId) => Promise<void>
   reset: () => void
 }
 
-export const useServerStats = create<ServerStatsState>()((set) => ({
+export const useServerStats = create<ServerStatsState>()((set, get) => ({
+  table: null,
   progress: null,
   loading: false,
   error: null,
   fetchedAt: null,
   resetAt: null,
 
-  refresh: async () => {
+  refresh: async (table) => {
     if (!useAuthStore.getState().session) return
+    // Інший формат — старі цифри не показуємо навіть на час завантаження.
+    if (get().table !== table) set({ table, progress: null, resetAt: null })
     set({ loading: true, error: null })
     try {
-      const { progress, fetchedAt, resetAt } = await fetchServerProgress()
+      const { progress, fetchedAt, resetAt } = await fetchServerProgress(table)
+      // Поки йшов запит, гравець перемкнув формат — відповідь уже чужа.
+      if (get().table !== table) return
       set({ progress, fetchedAt, resetAt, loading: false })
     } catch (e) {
+      if (get().table !== table) return
       set({
         loading: false,
         error: e instanceof Error ? e.message : 'не вдалося завантажити статистику',
@@ -49,7 +59,14 @@ export const useServerStats = create<ServerStatsState>()((set) => ({
   },
 
   reset: () =>
-    set({ progress: null, fetchedAt: null, resetAt: null, error: null, loading: false }),
+    set({
+      table: null,
+      progress: null,
+      fetchedAt: null,
+      resetAt: null,
+      error: null,
+      loading: false,
+    }),
 }))
 
 export interface StatsSource {
@@ -67,10 +84,12 @@ export interface StatsSource {
  * Використовує drill-пул і мапу помилок при побудові спотів, щоб тренування
  * враховувало історію з усіх пристроїв, а не лише з цього браузера.
  */
-export function getStatsProgress(): PreProgress {
-  const local = useProgressStore.getState().pre
-  const { progress: server, resetAt } = useServerStats.getState()
-  return server ? mergeProgress(server, local.drill, queue.peek(), resetAt) : local
+export function getStatsProgress(table: TableId): PreProgress {
+  const local = useProgressStore.getState().tables[table].pre
+  const { progress: server, resetAt, table: loaded } = useServerStats.getState()
+  return server && loaded === table
+    ? mergeProgress(server, local.drill, ofTable(queue.peek(), table), resetAt)
+    : local
 }
 
 /**
@@ -78,9 +97,12 @@ export function getStatsProgress(): PreProgress {
  * Оновлюється при логіні та після кожного успішного синку.
  */
 export function useStatsSource(): StatsSource {
-  const local = useProgressStore((s) => s.pre)
+  const table = useTableStore((s) => s.table)
+  const local = useProgressStore((s) => s.tables[table].pre)
   const session = useAuthStore((s) => s.session)
-  const server = useServerStats((s) => s.progress)
+  const loaded = useServerStats((s) => s.table)
+  const rawServer = useServerStats((s) => s.progress)
+  const server = loaded === table ? rawServer : null
   const resetAt = useServerStats((s) => s.resetAt)
   const loading = useServerStats((s) => s.loading)
   const error = useServerStats((s) => s.error)
@@ -91,20 +113,21 @@ export function useStatsSource(): StatsSource {
   const lastSyncedAt = useSyncStore((s) => s.lastSyncedAt)
 
   useEffect(() => {
-    if (session) void refresh()
+    if (session) void refresh(table)
     else reset()
-  }, [session, refresh, reset])
+  }, [session, table, refresh, reset])
 
   // Після того, як черга доїхала, серверні цифри змінились — перечитуємо.
   useEffect(() => {
-    if (session && lastSyncedAt) void refresh()
-  }, [session, lastSyncedAt, refresh])
+    if (session && lastSyncedAt) void refresh(table)
+  }, [session, table, lastSyncedAt, refresh])
 
   // Серверні цифри плюс те, що ще в черзі: інакше лічильник після відповіді
   // не рухався б до наступного синку.
   const progress = useMemo(
-    () => (server ? mergeProgress(server, local.drill, queued, resetAt) : local),
-    [server, local, queued, resetAt],
+    () =>
+      server ? mergeProgress(server, local.drill, ofTable(queued, table), resetAt) : local,
+    [server, local, queued, resetAt, table],
   )
 
   return {

@@ -1208,6 +1208,9 @@ td.m {
 .head .account {
   margin-bottom: 0;
 }
+.head .table-switch .chips {
+  margin: 10px 0 0;
+}
 
 @media (min-width: 1000px) {
   .wrap.fit {

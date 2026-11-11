@@ -9,7 +9,8 @@ import { RI } from './cards'
 import type { MistakeEntry, PreProgress } from './progress'
 import { SCENARIOS } from './ranges'
 import { actionName } from './spots'
-import { ACTION_ORDER, type Hand, type Position, type Scenario } from './types'
+import type { TableConfig } from './tables'
+import type { Hand, Position, Scenario } from './types'
 
 export type HandCategory =
   | 'pairHigh'
@@ -206,7 +207,7 @@ const BIAS_TIGHT =
 const BIAS_MIXED =
   'Перекіс у обидва боки приблизно однаковий — діапазони ще не завчені як цілісні картинки, рішення приймаються на око.'
 
-export function buildReview(progress: PreProgress, scen: Scenario): Review {
+export function buildReview(progress: PreProgress, scen: Scenario, table: TableConfig): Review {
   const log = progress.log.filter((e) => e.s === scen)
   const played = progress.byScen[scen]?.t ?? 0
   const loose = log.filter((e) => e.co === 'fold').length
@@ -259,7 +260,7 @@ export function buildReview(progress: PreProgress, scen: Scenario): Review {
     })
 
   const scenPos = progress.byScenPos[scen] ?? {}
-  const byPosition = ACTION_ORDER.map((pos) => {
+  const byPosition = table.seats.map((pos) => {
     const d = scenPos[pos]
     return { pos, acc: d && d.t ? Math.round((d.c / d.t) * 100) : null, t: d?.t ?? 0 }
   })
@@ -282,13 +283,13 @@ export function buildReview(progress: PreProgress, scen: Scenario): Review {
 }
 
 /** Текстовий звіт — той самий формат, що в HTML-версії, щоб можна було копіювати на розбір. */
-export function buildReport(progress: PreProgress, scen: Scenario): string {
+export function buildReport(progress: PreProgress, scen: Scenario, table: TableConfig): string {
   const log = progress.log.filter((e) => e.s === scen)
   const played = progress.byScen[scen]?.t ?? 0
   const acc = played ? Math.round(((played - log.length) / played) * 100) : 0
 
   const lines: string[] = [
-    `ЗВІТ · ПРЕФЛОП · сценарій: ${SCENARIOS[scen].label}`,
+    `ЗВІТ · ПРЕФЛОП · ${table.label} · сценарій: ${SCENARIOS[scen].label}`,
     `Зіграно: ${played} · точність: ${acc}% · помилок: ${log.length}`,
     `Зайвих відкриттів: ${log.filter((e) => e.co === 'fold').length} · зайвих фолдів: ${
       log.filter((e) => e.co !== 'fold').length
@@ -299,7 +300,7 @@ export function buildReport(progress: PreProgress, scen: Scenario): string {
 
   const scenPos = progress.byScenPos[scen] ?? {}
   let anyPos = false
-  for (const p of ACTION_ORDER) {
+  for (const p of table.seats) {
     const d = scenPos[p]
     if (d && d.t) {
       anyPos = true

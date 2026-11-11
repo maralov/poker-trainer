@@ -6,6 +6,7 @@
  */
 
 import type { RecentEntry } from './progress'
+import type { TableConfig } from './tables'
 import type { Position, Scenario } from './types'
 
 export const GATE = {
@@ -17,8 +18,6 @@ export const GATE = {
   scenMin: 15,
   /** Мінімум рук у вікні, щоб позиція рахувалась. */
   posMin: 8,
-  /** Скільки позицій мають набрати норму. */
-  posCount: 8,
   /** Розмір ковзного вікна. */
   window: 150,
 } as const
@@ -58,7 +57,12 @@ function aggregate<K extends string>(entries: readonly RecentEntry[], key: 's' |
   return out
 }
 
-export function gateStatus(recent: readonly RecentEntry[], total: number): GateStatus {
+/** Скільки позицій мають набрати норму — з конфігу столу (`posCount`). */
+export function gateStatus(
+  recent: readonly RecentEntry[],
+  total: number,
+  table: TableConfig,
+): GateStatus {
   const w = recent.slice(-GATE.window)
   const acc = w.length ? (w.filter((e) => e.ok).length / w.length) * 100 : 0
 
@@ -73,7 +77,7 @@ export function gateStatus(recent: readonly RecentEntry[], total: number): GateS
   const c2 = w.length >= GATE.hands && acc >= GATE.acc
   const c3 = w.length >= GATE.hands && scen.length > 0 && scen.every((s) => s.p >= GATE.acc)
   const c4 =
-    w.length >= GATE.hands && pos.length >= GATE.posCount && pos.every((s) => s.p >= GATE.acc)
+    w.length >= GATE.hands && pos.length >= table.posCount && pos.every((s) => s.p >= GATE.acc)
 
   return { c1, c2, c3, c4, ok: c1 && c2 && c3 && c4, total, acc, scen, pos, win: w.length }
 }

@@ -7,10 +7,13 @@ import { cardCode } from './deck'
 import { evalHand } from './evaluate'
 import { advance, answerPost, heroDecision, startEpisode } from './step'
 import type { PostAction } from './types'
+import { TABLES } from '../tables'
+
+const T9 = TABLES['9max']
 
 /** Прогонить епізод до кінця, щоразу віддаючи правильну відповідь. */
 function playCorrect(seed: number): ReturnType<typeof startEpisode> {
-  const ep = startEpisode({ rng: mulberry32(seed) })
+  const ep = startEpisode({ table: T9, rng: mulberry32(seed) })
   const rng = mulberry32(seed + 10_000)
   let guard = 0
   while (!ep.finished && guard++ < 20) {
@@ -23,7 +26,7 @@ function playCorrect(seed: number): ReturnType<typeof startEpisode> {
 
 /** Прогонить епізод, щоразу віддаючи задану дію, якщо вона доступна. */
 function playWith(seed: number, prefer: PostAction): ReturnType<typeof startEpisode> {
-  const ep = startEpisode({ rng: mulberry32(seed) })
+  const ep = startEpisode({ table: T9, rng: mulberry32(seed) })
   const rng = mulberry32(seed + 10_000)
   let guard = 0
   while (!ep.finished && guard++ < 20) {
@@ -37,22 +40,22 @@ function playWith(seed: number, prefer: PostAction): ReturnType<typeof startEpis
 
 describe('startEpisode', () => {
   it('той самий seed дає той самий стан і те саме рішення', () => {
-    const a = startEpisode({ rng: mulberry32(5) })
-    const b = startEpisode({ rng: mulberry32(5) })
+    const a = startEpisode({ table: T9, rng: mulberry32(5) })
+    const b = startEpisode({ table: T9, rng: mulberry32(5) })
     expect(a.board.map(cardCode)).toEqual(b.board.map(cardCode))
     expect(heroDecision(a)?.correct).toBe(heroDecision(b)?.correct)
   })
 
   it('герой або має рішення, або роздача вже завершена', () => {
     for (let s = 1; s <= 200; s++) {
-      const ep = startEpisode({ rng: mulberry32(s) })
+      const ep = startEpisode({ table: T9, rng: mulberry32(s) })
       expect(ep.finished !== null || heroDecision(ep) !== null, `seed ${s}`).toBe(true)
     }
   })
 
   it('на флопі без ставок пропонує чек і два сайзи в порядку хоткеїв', () => {
     for (let s = 1; s <= 100; s++) {
-      const ep = startEpisode({ rng: mulberry32(s) })
+      const ep = startEpisode({ table: T9, rng: mulberry32(s) })
       const d = heroDecision(ep)
       if (!d || d.facing !== 'none') continue
       expect(d.options.map((o) => o.k)).toEqual(['check', 'b33', 'b66'])
@@ -65,7 +68,7 @@ describe('startEpisode', () => {
 
 describe('дії героя', () => {
   it('фолд завершує роздачу', () => {
-    const ep = startEpisode({ rng: mulberry32(3) })
+    const ep = startEpisode({ table: T9, rng: mulberry32(3) })
     answerPost(ep, 'fold', mulberry32(3))
     expect(ep.finished?.kind).toBe('hero-folded')
     expect(ep.finished?.heroWon).toBe(false)
@@ -74,7 +77,7 @@ describe('дії героя', () => {
 
   it('ставка збільшує банк і зменшує стек героя', () => {
     for (let s = 1; s <= 100; s++) {
-      const ep = startEpisode({ rng: mulberry32(s) })
+      const ep = startEpisode({ table: T9, rng: mulberry32(s) })
       const d = heroDecision(ep)
       if (!d || d.facing !== 'none') continue
       const potBefore = ep.potBB
@@ -88,7 +91,7 @@ describe('дії героя', () => {
   })
 
   it('правильна відповідь дає ok, неправильна — ні', () => {
-    const ep = startEpisode({ rng: mulberry32(9) })
+    const ep = startEpisode({ table: T9, rng: mulberry32(9) })
     const d = heroDecision(ep)
     expect(d).not.toBeNull()
     const wrong = d!.options.map((o) => o.k).find((k) => k !== d!.correct)
@@ -99,7 +102,7 @@ describe('дії героя', () => {
   })
 
   it('відповідь після завершення роздачі — виняток, а не мовчазний no-op', () => {
-    const ep = startEpisode({ rng: mulberry32(4) })
+    const ep = startEpisode({ table: T9, rng: mulberry32(4) })
     answerPost(ep, 'fold', mulberry32(4))
     expect(() => answerPost(ep, 'check', mulberry32(4))).toThrow(/не треба діяти/)
   })
@@ -149,7 +152,7 @@ describe('перебіг роздачі', () => {
 
   it('нова вулиця скидає cap рейзу', () => {
     for (let s = 1; s <= 200; s++) {
-      const ep = startEpisode({ rng: mulberry32(s) })
+      const ep = startEpisode({ table: T9, rng: mulberry32(s) })
       const rng = mulberry32(s + 5)
       let guard = 0
       let street = ep.street
@@ -168,7 +171,7 @@ describe('перебіг роздачі', () => {
   it('проти рейзу кнопки рейзу немає — ре-рейзів у моделі не існує', () => {
     let seen = 0
     for (let s = 1; s <= 400 && seen < 3; s++) {
-      const ep = startEpisode({ rng: mulberry32(s) })
+      const ep = startEpisode({ table: T9, rng: mulberry32(s) })
       const rng = mulberry32(s + 77)
       let guard = 0
       while (!ep.finished && guard++ < 20) {
@@ -194,7 +197,7 @@ describe('перебіг роздачі', () => {
 
 describe('HeroDecision несе знімок споту для журналу', () => {
   it('board, hole і hand у рішенні відповідають фактичному стану на момент рішення', () => {
-    const ep = startEpisode({ rng: mulberry32(5) })
+    const ep = startEpisode({ table: T9, rng: mulberry32(5) })
     const d = heroDecision(ep)
     expect(d).not.toBeNull()
     const hero = ep.seats[ep.heroIdx]
@@ -212,7 +215,7 @@ describe('HeroDecision несе знімок споту для журналу', 
   it('знімок борду в рішенні не мутується, коли advance() дописує карту наступної вулиці', () => {
     let seen = false
     for (let s = 1; s <= 500 && !seen; s++) {
-      const ep = startEpisode({ rng: mulberry32(s) })
+      const ep = startEpisode({ table: T9, rng: mulberry32(s) })
       const rng = mulberry32(s + 900)
       let guard = 0
       while (!ep.finished && guard++ < 20) {
@@ -233,7 +236,7 @@ describe('HeroDecision несе знімок споту для журналу', 
   it('oppPositions лишається повним списком опонентів роздачі, навіть коли хтось встиг зафолдити', () => {
     let seen = false
     for (let s = 1; s <= 500 && !seen; s++) {
-      const ep = startEpisode({ rng: mulberry32(s) })
+      const ep = startEpisode({ table: T9, rng: mulberry32(s) })
       const dealt = ep.seats.filter((x) => !x.hero).map((x) => x.pos)
       if (dealt.length < 2) continue
       const rng = mulberry32(s + 321)
@@ -254,7 +257,7 @@ describe('ризик 1 — порядок дій після рейзу не гу
   it('на кожній вулиці facing==="raise" трапляється щонайбільше раз (rerise неможливий, а cap не «губиться»)', () => {
     let seenRaiseFacing = 0
     for (let s = 1; s <= 400 && seenRaiseFacing < 5; s++) {
-      const ep = startEpisode({ rng: mulberry32(s) })
+      const ep = startEpisode({ table: T9, rng: mulberry32(s) })
       const rng = mulberry32(s + 91)
       let guard = 0
       let raisesThisStreet = 0
@@ -293,7 +296,7 @@ describe('ризик 3 — олл-ін', () => {
   it('опонент із мізерним стеком іде ва-банк, і роздача все одно доходить до термінала', () => {
     let done = false
     for (let s = 1; s <= 300 && !done; s++) {
-      const ep = startEpisode({ rng: mulberry32(s) })
+      const ep = startEpisode({ table: T9, rng: mulberry32(s) })
       const d = heroDecision(ep)
       if (!d || d.facing !== 'none') continue
       const villainIdx = ep.seats.findIndex((seat) => !seat.hero)
@@ -318,7 +321,7 @@ describe('ризик 3 — олл-ін', () => {
   it('рейз опонента, на який стека вистачає лише частково, не занижує ep.bet нижче того, що вже стоїть на кону', () => {
     let done = false
     for (let s = 1; s <= 400 && !done; s++) {
-      const ep = startEpisode({ rng: mulberry32(s) })
+      const ep = startEpisode({ table: T9, rng: mulberry32(s) })
       // Спрощуємо до хедз-апу: лише герой і один опонент, і опонент діє
       // РАНІШЕ за героя — тоді після його дії черга одразу повертається
       // герою в межах ТІЄЇ Ж вулиці (вулиця не встигає закритись і
@@ -359,7 +362,7 @@ describe('ризик 4 — facing "raise" у мультиполі', () => {
   it('якщо рейз стався до першого погляду героя на вулицю (put героя ще 0), facing все одно "raise"', () => {
     let seen = 0
     for (let s = 1; s <= 2000 && seen < 3; s++) {
-      const ep = startEpisode({ rng: mulberry32(s) })
+      const ep = startEpisode({ table: T9, rng: mulberry32(s) })
       const rng = mulberry32(s + 123)
       let guard = 0
       while (!ep.finished && guard++ < 20) {
@@ -381,7 +384,7 @@ describe('ризик 4 — facing "raise" у мультиполі', () => {
 describe('ризик 5 — delayed', () => {
   it('на флопі delayed завжди false', () => {
     for (let s = 1; s <= 100; s++) {
-      const ep = startEpisode({ rng: mulberry32(s) })
+      const ep = startEpisode({ table: T9, rng: mulberry32(s) })
       if (ep.street === 'flop') expect(ep.delayed, `seed ${s}`).toBe(false)
     }
   })
@@ -390,7 +393,7 @@ describe('ризик 5 — delayed', () => {
     let sawDelayed = false
     let sawNotDelayed = false
     for (let s = 1; s <= 400 && (!sawDelayed || !sawNotDelayed); s++) {
-      const ep = startEpisode({ rng: mulberry32(s) })
+      const ep = startEpisode({ table: T9, rng: mulberry32(s) })
       const rng = mulberry32(s + 44)
       let guard = 0
       let flopHadBet = false
@@ -419,7 +422,7 @@ describe('ризик 5 — delayed', () => {
 
 describe('лінія колера', () => {
   const startCaller = (seed: number) =>
-    startEpisode({ scenario: 'vsraise', rng: mulberry32(seed) })
+    startEpisode({ table: T9, scenario: 'vsraise', rng: mulberry32(seed) })
 
   it('рішення несе лінію — від неї залежать §5.1а і §5.4', () => {
     for (let s = 1; s <= 50; s++) {

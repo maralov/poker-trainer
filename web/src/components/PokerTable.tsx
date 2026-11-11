@@ -1,6 +1,7 @@
-/** Стіл: 9 сітів по колу, герой завжди внизу по центру. */
+/** Стіл: сіти формату по колу, герой завжди внизу по центру. */
 
-import { ACTION_ORDER, type Position, type SeatAction, type Spot } from '../engine/types'
+import { TABLES } from '../engine/tables'
+import type { Position, SeatAction, Spot } from '../engine/types'
 
 /** Підпис і CSS-клас дії на сіті. */
 const SEAT_TEXT: Readonly<Record<SeatAction, readonly [string, string]>> = {
@@ -11,7 +12,10 @@ const SEAT_TEXT: Readonly<Record<SeatAction, readonly [string, string]>> = {
 }
 
 export function PokerTable({ spot }: { spot: Spot }) {
-  const start = ACTION_ORDER.indexOf(spot.heroPos)
+  // Формат споту, а не перемикача: стіл малює те, що роздано.
+  const seats = TABLES[spot.table].seats
+  const n = seats.length
+  const start = seats.indexOf(spot.heroPos)
 
   return (
     <div className="felt-wrap">
@@ -20,10 +24,10 @@ export function PokerTable({ spot }: { spot: Spot }) {
           Банк<b>{spot.potBB} bb</b>
         </div>
       </div>
-      {Array.from({ length: 9 }, (_, i) => {
-        const pos = ACTION_ORDER[(start + i) % 9] as Position
+      {Array.from({ length: n }, (_, i) => {
+        const pos = seats[(start + i) % n] as Position
         // i=0 → 90° → низ по центру: герой завжди перед гравцем.
-        const ang = ((90 + i * 40) * Math.PI) / 180
+        const ang = ((90 + (i * 360) / n) * Math.PI) / 180
         const action = spot.seats[pos]
         const [label, cls] = action ? SEAT_TEXT[action] : ['', '']
         return (

@@ -9,6 +9,7 @@ import { SCENARIOS } from '../engine/ranges'
 import { CAT_LABEL, GRP_LABEL, buildReport, buildReview } from '../engine/review'
 import { SCENARIO_KEYS, type Scenario } from '../engine/types'
 import { useStatsSource } from '../store/statsSource'
+import { useTable } from '../store/tableStore'
 
 const HINT = 'Звіт можна скопіювати і принести на розбір'
 
@@ -30,13 +31,14 @@ async function copyText(text: string): Promise<void> {
 
 export function Review() {
   const pre = useStatsSource().progress
+  const table = useTable()
   const [scen, setScen] = useState<Scenario>('rfi')
   const [hint, setHint] = useState(HINT)
 
-  const r = buildReview(pre, scen)
+  const r = buildReview(pre, scen, table)
 
   const onCopy = () => {
-    void copyText(buildReport(pre, scen))
+    void copyText(buildReport(pre, scen, table))
       .then(() => setHint('Скопійовано — можна вставляти на розбір'))
       .catch(() => setHint('Не вдалося скопіювати — виділи текст вручну'))
       .finally(() => setTimeout(() => setHint(HINT), 2600))
