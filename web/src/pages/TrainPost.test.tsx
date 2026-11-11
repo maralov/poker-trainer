@@ -89,7 +89,7 @@ describe('TrainPost', () => {
       expect(container.querySelectorAll('.cards')[0]?.children.length).toBeLessThan(
         episode.board.length,
       )
-      expect(screen.getByText(`${decision.potBB}bb`)).toBeInTheDocument()
+      expect(screen.getByText(`${decision.potBB} bb`)).toBeInTheDocument()
       unmount()
       return
     }
