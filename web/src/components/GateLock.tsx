@@ -6,6 +6,7 @@
 import { GATE, gateStatus, type GateStatus } from '../engine/gate'
 import { SCENARIOS } from '../engine/ranges'
 import { useStatsSource } from '../store/statsSource'
+import { useTable } from '../store/tableStore'
 
 function Criterion({
   done,
@@ -39,7 +40,8 @@ function Criterion({
 
 export function GateLock() {
   const pre = useStatsSource().progress
-  const g: GateStatus = gateStatus(pre.recent, pre.total)
+  const table = useTable()
+  const g: GateStatus = gateStatus(pre.recent, pre.total, table)
 
   const worstScen = [...g.scen].sort((a, b) => a.p - b.p)[0]
   const worstPos = [...g.pos].sort((a, b) => a.p - b.p)[0]
@@ -89,9 +91,9 @@ export function GateLock() {
             ? `${g.pos.length} позицій, найгірша: ${worstPos.k} ${Math.round(worstPos.p)}%`
             : 'немає даних'
         }
-        desc={`Рахуються позиції з ${GATE.posMin}+ руками у вікні, потрібно щонайменше ${GATE.posCount}. Слабка позиція за реальним столом коштує так само, як слабкий сценарій.`}
+        desc={`Рахуються позиції з ${GATE.posMin}+ руками у вікні, потрібно щонайменше ${table.posCount} з ${table.seats.length} (${table.label}). Слабка позиція за реальним столом коштує так само, як слабкий сценарій.`}
         progress={
-          worstPos ? Math.min(worstPos.p / GATE.acc, g.pos.length / GATE.posCount) * 100 : 0
+          worstPos ? Math.min(worstPos.p / GATE.acc, g.pos.length / table.posCount) * 100 : 0
         }
       />
 

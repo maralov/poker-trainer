@@ -299,3 +299,22 @@ describe('повтори з backoff', () => {
     expect(batches).toHaveLength(2)
   })
 })
+
+describe('removeWhere', () => {
+  it('прибирає лише події, що підпадають під умову', () => {
+    const s = new MemoryStorage()
+    const q = new SyncQueue<QueuedAttempt>({
+      storage: s,
+      isAuthenticated: () => false,
+      storageKey: QUEUE_KEY,
+      send: fakeSend().send,
+    })
+    q.enqueue({ ...attempt('a'), table_size: '9max' })
+    q.enqueue({ ...attempt('b'), table_size: '6max' })
+    q.enqueue(attempt('c'))
+
+    q.removeWhere((x) => x.table_size === '6max')
+
+    expect(q.peek().map((x) => x.client_id)).toEqual(['a', 'c'])
+  })
+})

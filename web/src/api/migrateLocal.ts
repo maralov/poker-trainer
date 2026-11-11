@@ -12,19 +12,26 @@
  */
 
 import type { MistakeEntry, PreProgress } from '../engine/progress'
+import type { TableId } from '../engine/types'
 import { recordAttempt } from './sync'
 import type { QueuedAttempt } from './syncQueue'
 
 export const MIGRATION_FLAG_KEY = 'poker_trainer_local_migrated_v1'
 
-/** Стабільний ключ події: ті самі дані завжди дають той самий client_id. */
-export function legacyClientId(e: MistakeEntry): string {
-  return `legacy:${e.t}:${e.s}:${e.p}:${e.h}:${e.ch}`
+/**
+ * Стабільний ключ події: ті самі дані завжди дають той самий client_id.
+ * Для 9-max формат ключа не змінився — інакше вже перенесені події
+ * переїхали б вдруге під новим ключем.
+ */
+export function legacyClientId(e: MistakeEntry, table: TableId = '9max'): string {
+  const base = `${e.t}:${e.s}:${e.p}:${e.h}:${e.ch}`
+  return table === '9max' ? `legacy:${base}` : `legacy:${table}:${base}`
 }
 
-export function toAttempt(e: MistakeEntry): QueuedAttempt {
+export function toAttempt(e: MistakeEntry, table: TableId = '9max'): QueuedAttempt {
   return {
-    client_id: legacyClientId(e),
+    client_id: legacyClientId(e, table),
+    table_size: table,
     stage: 'pre',
     scenario: e.s,
     hero_pos: e.p,
@@ -51,7 +58,7 @@ export interface MigrationResult {
  * і прапорець у сховищі, і детермінований client_id захищають від дублів.
  */
 export function migrateLocalHistory(
-  progress: PreProgress,
+  byTable: Readonly<Partial<Record<TableId, PreProgress>>>,
   storage: Storage | undefined = globalThis.localStorage,
 ): MigrationResult {
   try {
@@ -61,7 +68,9 @@ export function migrateLocalHistory(
     // дублів усе одно не буде.
   }
 
-  const entries = progress.log
+  const entries = Object.entries(byTable).flatMap(([table, progress]) =>
+    (progress?.log ?? []).map((e) => toAttempt(e, table as TableId)),
+  )
   if (!entries.length) {
     try {
       storage?.setItem(MIGRATION_FLAG_KEY, String(Date.now()))
@@ -71,7 +80,7 @@ export function migrateLocalHistory(
     return { migrated: 0, skipped: 'nothing-to-do' }
   }
 
-  for (const e of entries) recordAttempt(toAttempt(e))
+  for (const a of entries) recordAttempt(a)
 
   try {
     storage?.setItem(MIGRATION_FLAG_KEY, String(Date.now()))

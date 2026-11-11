@@ -10,6 +10,7 @@ import { useAuthStore } from '../store/authStore'
 import { useServerPostStats } from '../store/postStatsSource'
 import { useProgressStore } from '../store/progressStore'
 import { PostReview } from './PostReview'
+import { setTableProgress } from '../test/progress'
 
 // Мокаємо весь модуль мережі: тест про екран, а не про supabase-клієнта.
 vi.mock('../api/serverPostProgress', () => ({
@@ -34,7 +35,7 @@ const mistake = (over: Partial<PostMistakeEntry> = {}): PostMistakeEntry => ({
 })
 
 const setLog = (log: readonly PostMistakeEntry[], total = 40) => {
-  useProgressStore.setState({
+  setTableProgress({
     post: { ...emptyPostProgress(), total, correct: total - log.length, log: [...log] },
   })
 }
@@ -44,14 +45,13 @@ describe('PostReview', () => {
     vi.mocked(fetchEpisode).mockReset()
     useServerPostStats.setState({ progress: null, loading: false, error: null })
     useAuthStore.setState({ session: null })
-    useProgressStore.setState({
+    setTableProgress({
       pre: emptyPreProgress(),
       post: emptyPostProgress(),
       postUnlocked: true,
       postSeen: true,
-      legacyImported: null,
-      legacyChecked: true,
     })
+    useProgressStore.setState({ legacyImported: null, legacyChecked: true })
   })
 
   it('порожній журнал запрошує зіграти', () => {

@@ -12,13 +12,15 @@ import { useScrollToResult } from '../hooks/useScrollToResult'
 import { useProgressStore } from '../store/progressStore'
 import { useSessionStore } from '../store/sessionStore'
 import { useStatsSource } from '../store/statsSource'
+import { useTableStore } from '../store/tableStore'
 
 const SCENARIO_ITEMS = SCENARIO_KEYS.map((k) => ({ key: k, label: SCENARIOS[k].label }))
 
 export function Train() {
   const pre = useStatsSource().progress
-  const postSeen = useProgressStore((s) => s.postSeen)
-  const postUnlocked = useProgressStore((s) => s.postUnlocked)
+  const table = useTableStore((s) => s.table)
+  const postSeen = useProgressStore((s) => s.tables[table].postSeen)
+  const postUnlocked = useProgressStore((s) => s.tables[table].postUnlocked)
   const markPostSeen = useProgressStore((s) => s.markPostSeen)
 
   const spot = useSessionStore((s) => s.spot)
@@ -38,8 +40,8 @@ export function Train() {
 
   const showBanner = postUnlocked && !postSeen
   useEffect(() => {
-    if (showBanner) markPostSeen()
-  }, [showBanner, markPostSeen])
+    if (showBanner) markPostSeen(table)
+  }, [showBanner, markPostSeen, table])
 
   const sideRef = useScrollToResult(feedback !== null)
 

@@ -23,6 +23,7 @@ import {
 } from '../engine/postflop'
 import { getPostStatsProgress } from './postStatsSource'
 import { useProgressStore } from './progressStore'
+import { currentTable, useTableStore } from './tableStore'
 
 export interface PostFeedback {
   readonly ok: boolean
@@ -66,8 +67,9 @@ export const usePostSessionStore = create<PostSessionState>()((set, get) => ({
 
   deal: () => {
     const id = crypto.randomUUID()
+    const table = currentTable()
     if (get().drillOn) {
-      const spot = nextDrillSpot(postDrillPool(getPostStatsProgress()), { id })
+      const spot = nextDrillSpot(postDrillPool(getPostStatsProgress(table.id)), { table, id })
       if (spot) {
         set({
           episode: spot.episode,
@@ -82,7 +84,7 @@ export const usePostSessionStore = create<PostSessionState>()((set, get) => ({
       set({ drillOn: false })
     }
 
-    const episode = startEpisode({ scenario: get().scenario, id })
+    const episode = startEpisode({ table, scenario: get().scenario, id })
     set({
       episode,
       decision: heroDecision(episode),
@@ -105,6 +107,7 @@ export const usePostSessionStore = create<PostSessionState>()((set, get) => ({
     const d = result.decision
 
     const record = useProgressStore.getState().answerPost(
+      episode.table,
       {
         street: d.street,
         cat: d.cat,
@@ -126,6 +129,7 @@ export const usePostSessionStore = create<PostSessionState>()((set, get) => ({
 
     recordPostAttempt({
       client_id: crypto.randomUUID(),
+      table_size: episode.table,
       episode_id: episode.id,
       line: episode.line,
       // Сценарій епізоду, а не обраний чіп: drill роздає з усіх трьох.
@@ -182,3 +186,12 @@ export const usePostSessionStore = create<PostSessionState>()((set, get) => ({
     get().deal()
   },
 }))
+
+// Зміна формату: поточна роздача належить іншому столу — роздаємо нову.
+// Drill вимикається: пул патернів у кожного формату свій.
+useTableStore.subscribe((state, prev) => {
+  if (state.table !== prev.table && usePostSessionStore.getState().episode !== null) {
+    usePostSessionStore.setState({ drillOn: false, streak: 0 })
+    usePostSessionStore.getState().deal()
+  }
+})

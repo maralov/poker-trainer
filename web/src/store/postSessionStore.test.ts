@@ -15,6 +15,7 @@ import { emptyPostProgress } from '../engine/postflop'
 import { emptyPreProgress } from '../engine/progress'
 import { usePostSessionStore } from './postSessionStore'
 import { useProgressStore } from './progressStore'
+import { setTableProgress, tableProgress } from '../test/progress'
 
 describe('usePostSessionStore', () => {
   beforeEach(() => {
@@ -26,14 +27,13 @@ describe('usePostSessionStore', () => {
       streak: 0,
       scenario: 'rfi',
     })
-    useProgressStore.setState({
+    setTableProgress({
       pre: emptyPreProgress(),
       post: emptyPostProgress(),
       postUnlocked: false,
       postSeen: false,
-      legacyImported: null,
-      legacyChecked: true,
     })
+    useProgressStore.setState({ legacyImported: null, legacyChecked: true })
   })
 
   it('deal роздає епізод і виставляє рішення', () => {
@@ -58,8 +58,8 @@ describe('usePostSessionStore', () => {
 
     expect(state.feedback?.ok).toBe(true)
     expect(state.streak).toBe(1)
-    expect(useProgressStore.getState().post.total).toBe(1)
-    expect(useProgressStore.getState().post.correct).toBe(1)
+    expect(tableProgress().post.total).toBe(1)
+    expect(tableProgress().post.correct).toBe(1)
   })
 
   it('помилка обнуляє серію і лягає в журнал', () => {
@@ -86,9 +86,9 @@ describe('usePostSessionStore', () => {
 
     expect(state.feedback?.ok).toBe(false)
     expect(state.streak).toBe(0)
-    expect(useProgressStore.getState().post.log).toHaveLength(1)
-    expect(useProgressStore.getState().post.log[0]?.ch).toBe(wrong.k)
-    expect(useProgressStore.getState().post.log[0]?.co).toBe(nextDecision.correct)
+    expect(tableProgress().post.log).toHaveLength(1)
+    expect(tableProgress().post.log[0]?.ch).toBe(wrong.k)
+    expect(tableProgress().post.log[0]?.co).toBe(nextDecision.correct)
   })
 
   it('повторна відповідь на те саме рішення ігнорується', () => {
@@ -105,7 +105,7 @@ describe('usePostSessionStore', () => {
 
     expect(afterSecond.streak).toBe(afterFirst.streak)
     expect(afterSecond.feedback).toEqual(afterFirst.feedback)
-    expect(useProgressStore.getState().post.total).toBe(1)
+    expect(tableProgress().post.total).toBe(1)
   })
 
   it('continueHand веде роздачу до кінця, а потім роздає нову', () => {

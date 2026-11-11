@@ -192,4 +192,9 @@ export class SyncQueue<T extends { client_id: string } = QueuedAttempt> {
   clear(): void {
     this.write([])
   }
+
+  /** Прибирає з черги події, що підпадають під умову; решта лишається. */
+  removeWhere(pred: (item: T) => boolean): void {
+    this.write(this.read().filter((x) => !pred(x)))
+  }
 }

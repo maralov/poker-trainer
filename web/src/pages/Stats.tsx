@@ -3,20 +3,22 @@
 import { PerPos, StatStrip } from '../components/StatStrip'
 import { GATE, gateStatus } from '../engine/gate'
 import { SCENARIOS } from '../engine/ranges'
-import { ACTION_ORDER, SCENARIO_KEYS } from '../engine/types'
+import { SCENARIO_KEYS } from '../engine/types'
 import { useState } from 'react'
 
 import { deleteProgress, resetProgress } from '../store/resetProgress'
 import { useStatsSource } from '../store/statsSource'
+import { useTable } from '../store/tableStore'
 
 export function Stats() {
   const source = useStatsSource()
   const pre = source.progress
+  const table = useTable()
   const [busy, setBusy] = useState<'reset' | 'delete' | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
 
   const acc = pre.total ? Math.round((pre.correct / pre.total) * 100) : 0
-  const g = gateStatus(pre.recent, pre.total)
+  const g = gateStatus(pre.recent, pre.total, table)
 
   const run = async (kind: 'reset' | 'delete', action: () => Promise<unknown>) => {
     setBusy(kind)
@@ -31,14 +33,16 @@ export function Stats() {
   }
 
   const onReset = () => {
-    if (!window.confirm('Скинути статистику? Історія залишиться в базі — лік почнеться з нуля.'))
+    if (!window.confirm(
+        `Скинути статистику ${table.label}? Інший формат не зміниться, історія залишиться в базі — лік почнеться з нуля.`,
+      ))
       return
     void run('reset', resetProgress)
   }
 
   const onDelete = () => {
     // Друге підтвердження свідомо: цю дію відкотити неможливо.
-    if (!window.confirm('Видалити ВСІ спроби назавжди? Це неможливо скасувати.')) return
+    if (!window.confirm('Видалити ВСІ спроби в усіх форматах назавжди? Це неможливо скасувати.')) return
     if (!window.confirm('Точно? Уся історія тренувань буде стерта з бази.')) return
     void run('delete', deleteProgress)
   }
@@ -74,7 +78,7 @@ export function Stats() {
           За позиціями · усі сценарії разом · поріг {GATE.acc}% при {GATE.posMin}+ руках
         </h4>
         <PerPos
-          items={ACTION_ORDER.map((p) => ({
+          items={table.seats.map((p) => ({
             name: p,
             acc: pctOf(pre.byPos[p]),
             t: pre.byPos[p]?.t ?? 0,
@@ -109,7 +113,7 @@ export function Stats() {
           </span>
           <span style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
             <button type="button" className="link" disabled={busy !== null} onClick={onReset}>
-              {busy === 'reset' ? 'Скидаю…' : 'Скинути прогрес префлопу'}
+              {busy === 'reset' ? 'Скидаю…' : `Скинути прогрес ${table.label}`}
             </button>
             <button type="button" className="link" disabled={busy !== null} onClick={onDelete}>
               {busy === 'delete' ? 'Видаляю…' : 'Видалити назавжди'}

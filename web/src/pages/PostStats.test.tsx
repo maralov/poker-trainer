@@ -5,6 +5,7 @@ import { emptyPostProgress, type PostProgress } from '../engine/postflop'
 import { emptyPreProgress } from '../engine/progress'
 import { useProgressStore } from '../store/progressStore'
 import { PostStats } from './PostStats'
+import { setTableProgress } from '../test/progress'
 
 const filled = (): PostProgress => ({
   ...emptyPostProgress(),
@@ -21,14 +22,13 @@ const filled = (): PostProgress => ({
 
 describe('PostStats', () => {
   beforeEach(() => {
-    useProgressStore.setState({
+    setTableProgress({
       pre: emptyPreProgress(),
       post: emptyPostProgress(),
       postUnlocked: true,
       postSeen: true,
-      legacyImported: null,
-      legacyChecked: true,
     })
+    useProgressStore.setState({ legacyImported: null, legacyChecked: true })
   })
 
   it('порожній прогрес запрошує зіграти, а не показує нулі', () => {
@@ -38,7 +38,7 @@ describe('PostStats', () => {
   })
 
   it('показує підсумок і всі пʼять зрізів', () => {
-    useProgressStore.setState({ post: filled() })
+    setTableProgress({ post: filled() })
     render(<PostStats />)
 
     expect(screen.getByText('усього рішень')).toBeInTheDocument()
@@ -60,7 +60,7 @@ describe('PostStats', () => {
   })
 
   it('каже, де скидати прогрес — кнопки тут свідомо немає', () => {
-    useProgressStore.setState({ post: filled() })
+    setTableProgress({ post: filled() })
     render(<PostStats />)
 
     expect(screen.getByText(/Скидання прогресу — на вкладці/)).toBeInTheDocument()

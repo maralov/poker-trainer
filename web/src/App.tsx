@@ -1,6 +1,7 @@
 import { useState } from 'react'
 
 import { AccountBar } from './components/AccountBar'
+import { TableSwitch } from './components/TableSwitch'
 import { GateLock } from './components/GateLock'
 import { InstallBanner } from './components/InstallBanner'
 import { gateStatus } from './engine/gate'
@@ -15,6 +16,7 @@ import { Train } from './pages/Train'
 import { TrainPost } from './pages/TrainPost'
 import { useProgressStore } from './store/progressStore'
 import { useStatsSource } from './store/statsSource'
+import { useTable } from './store/tableStore'
 
 type Stage = 'pre' | 'post'
 type Tab = 'train' | 'ranges' | 'stats' | 'review'
@@ -41,7 +43,8 @@ export default function App() {
   const [postTab, setPostTab] = useState<PostTab>('train')
 
   const pre = useStatsSource().progress
-  const postUnlocked = useProgressStore((s) => s.postUnlocked)
+  const table = useTable()
+  const postUnlocked = useProgressStore((s) => s.tables[table.id].postUnlocked)
   const legacyImported = useProgressStore((s) => s.legacyImported)
   const dismissLegacyNotice = useProgressStore((s) => s.dismissLegacyNotice)
 
@@ -50,7 +53,7 @@ export default function App() {
   // відповідала б за героя, поки учень просто читає таблиці.
   usePostTrainHotkeys(stage === 'post' && postUnlocked && postTab === 'train')
 
-  const g = gateStatus(pre.recent, pre.total)
+  const g = gateStatus(pre.recent, pre.total, table)
   const doneCount = [g.c1, g.c2, g.c3, g.c4].filter(Boolean).length
 
   // Екран рішення розкладається під висоту вікна (клас `fit`), решта вкладок —
@@ -63,9 +66,10 @@ export default function App() {
       <div className="head">
         <div>
           <h1>
-            Покер-тренажер <span>·</span> 9-max
+            Покер-тренажер <span>·</span> {table.label}
           </h1>
           <div className="sub">Кеш · лузове мікро-поле</div>
+          <TableSwitch />
         </div>
         <AccountBar />
       </div>

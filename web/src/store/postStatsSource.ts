@@ -14,38 +14,49 @@ import type { PostProgress } from '../engine/postflop'
 import { useAuthStore } from './authStore'
 import { mergePostProgress } from './mergePostProgress'
 import { useProgressStore } from './progressStore'
+import { ofTable, useTableStore } from './tableStore'
+import type { TableId } from '../engine/types'
 
 interface ServerPostState {
+  /** Формат, для якого завантажено progress. */
+  table: TableId | null
   progress: PostProgress | null
   loading: boolean
   error: string | null
-  refresh: () => Promise<void>
+  refresh: (table: TableId) => Promise<void>
   reset: () => void
 }
 
-export const useServerPostStats = create<ServerPostState>()((set) => ({
+export const useServerPostStats = create<ServerPostState>()((set, get) => ({
+  table: null,
   progress: null,
   loading: false,
   error: null,
-  refresh: async () => {
+  refresh: async (table) => {
+    if (get().table !== table) set({ table, progress: null })
     set({ loading: true, error: null })
     try {
-      const { progress } = await fetchServerPostProgress()
+      const { progress } = await fetchServerPostProgress(table)
+      // Поки йшов запит, гравець перемкнув формат — відповідь уже чужа.
+      if (get().table !== table) return
       set({ progress, loading: false })
     } catch (e) {
+      if (get().table !== table) return
       set({ loading: false, error: e instanceof Error ? e.message : 'помилка мережі' })
     }
   },
-  reset: () => set({ progress: null, error: null }),
+  reset: () => set({ table: null, progress: null, error: null }),
 }))
 
 /**
  * Те саме зведення поза React — для стору тренування: пул drill має бачити
  * помилки й серії з усіх пристроїв, а не лише з цього браузера.
  */
-export function getPostStatsProgress(): PostProgress {
-  const server = useServerPostStats.getState().progress
-  return server ? mergePostProgress(server, postQueue.peek()) : useProgressStore.getState().post
+export function getPostStatsProgress(table: TableId): PostProgress {
+  const { progress: server, table: loaded } = useServerPostStats.getState()
+  return server && loaded === table
+    ? mergePostProgress(server, ofTable(postQueue.peek(), table))
+    : useProgressStore.getState().tables[table].post
 }
 
 export interface PostStatsSource {
@@ -59,9 +70,12 @@ export interface PostStatsSource {
 }
 
 export function usePostStatsSource(): PostStatsSource {
-  const local = useProgressStore((s) => s.post)
+  const table = useTableStore((s) => s.table)
+  const local = useProgressStore((s) => s.tables[table].post)
   const session = useAuthStore((s) => s.session)
-  const server = useServerPostStats((s) => s.progress)
+  const loaded = useServerPostStats((s) => s.table)
+  const rawServer = useServerPostStats((s) => s.progress)
+  const server = loaded === table ? rawServer : null
   const loading = useServerPostStats((s) => s.loading)
   const error = useServerPostStats((s) => s.error)
   const refresh = useServerPostStats((s) => s.refresh)
@@ -71,20 +85,20 @@ export function usePostStatsSource(): PostStatsSource {
   const lastSyncedAt = usePostSyncStore((s) => s.lastSyncedAt)
 
   useEffect(() => {
-    if (session) void refresh()
+    if (session) void refresh(table)
     else reset()
-  }, [session, refresh, reset])
+  }, [session, table, refresh, reset])
 
   // Черга доїхала — серверні цифри змінились, перечитуємо (як у statsSource.ts).
   useEffect(() => {
-    if (session && lastSyncedAt) void refresh()
-  }, [session, lastSyncedAt, refresh])
+    if (session && lastSyncedAt) void refresh(table)
+  }, [session, table, lastSyncedAt, refresh])
 
   // Серверні цифри плюс те, що ще в черзі: інакше лічильник після відповіді
   // не рухався б до наступного синку.
   const progress = useMemo(
-    () => (server ? mergePostProgress(server, queued) : local),
-    [server, local, queued],
+    () => (server ? mergePostProgress(server, ofTable(queued, table)) : local),
+    [server, local, queued, table],
   )
 
   return { progress, fromServer: server !== null, pending, loading, error }

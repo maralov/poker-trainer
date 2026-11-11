@@ -22,6 +22,7 @@ import type {
   Street,
   Texture,
 } from '../engine/postflop'
+import type { TableId } from '../engine/types'
 import { supabase } from './supabase'
 
 const MISTAKES_LIMIT = 500
@@ -44,12 +45,13 @@ const DIMENSIONS: Readonly<Record<string, SliceField>> = {
   mode: 'byMode',
 }
 
-export async function fetchServerPostProgress(): Promise<ServerPostProgress> {
+export async function fetchServerPostProgress(table: TableId): Promise<ServerPostProgress> {
+  const t = { target_table: table }
   const [summary, totals, mistakes, drillTail] = await Promise.all([
-    supabase.rpc('postflop_summary'),
-    supabase.rpc('postflop_totals'),
-    supabase.rpc('postflop_mistakes', { max_rows: MISTAKES_LIMIT }),
-    supabase.rpc('postflop_drill_tail', { max_rows: POST_DRILL_LOG_LIMIT }),
+    supabase.rpc('postflop_summary', t),
+    supabase.rpc('postflop_totals', t),
+    supabase.rpc('postflop_mistakes', { ...t, max_rows: MISTAKES_LIMIT }),
+    supabase.rpc('postflop_drill_tail', { ...t, max_rows: POST_DRILL_LOG_LIMIT }),
   ])
 
   const failed = [summary, totals, mistakes, drillTail].find((r) => r.error)

@@ -7,10 +7,12 @@ import { DRILL, canDrill, drillPool, drillStats } from '../engine/drill'
 import { SCENARIOS } from '../engine/ranges'
 import { useSessionStore } from '../store/sessionStore'
 import { useStatsSource } from '../store/statsSource'
+import { useTable } from '../store/tableStore'
 
 export function DrillBar() {
   // Пул «ліків» має враховувати помилки з усіх пристроїв, а не лише з цього.
   const pre = useStatsSource().progress
+  const table = useTable()
   const drillScen = useSessionStore((s) => s.drillScen)
   const activeScenarios = useSessionStore((s) => s.activeScenarios)
   const startDrill = useSessionStore((s) => s.startDrill)
@@ -29,7 +31,7 @@ export function DrillBar() {
     )
   }
 
-  const pool = drillPool(pre, scen)
+  const pool = drillPool(pre, scen, table)
   const stats = drillStats(pre, scen)
   const name = SCENARIOS[scen].label
 
@@ -58,7 +60,7 @@ export function DrillBar() {
     )
   }
 
-  const can = canDrill(pre, scen)
+  const can = canDrill(pre, scen, table)
   const positions = [...new Set(pool.map((x) => x.pos))].join(', ')
 
   return (

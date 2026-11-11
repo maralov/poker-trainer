@@ -9,9 +9,9 @@ import { beforeEach, describe, expect, it } from 'vitest'
 
 import { emptyPreProgress, type PreProgress } from '../engine/progress'
 import type { Action, Hand, Position, Scenario } from '../engine/types'
-import { useProgressStore } from '../store/progressStore'
 import { useSessionStore } from '../store/sessionStore'
 import { DrillBar } from './DrillBar'
+import { setTableProgress } from '../test/progress'
 
 function withMistakes(entries: readonly [Scenario, Position, Hand, number][]): PreProgress {
   const p = emptyPreProgress()
@@ -23,7 +23,7 @@ function withMistakes(entries: readonly [Scenario, Position, Hand, number][]): P
   return p
 }
 
-const setProgress = (pre: PreProgress) => useProgressStore.setState({ pre })
+const setProgress = (pre: PreProgress) => setTableProgress({ pre })
 
 describe('DrillBar', () => {
   beforeEach(() => {
