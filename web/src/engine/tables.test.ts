@@ -85,6 +85,31 @@ describe.each(Object.values(TABLES))('$label: захист від 3-бету', (
   })
 })
 
+describe.each(Object.values(TABLES))('$label: захист від 4-бету', (table) => {
+  const BUCKETS = ['EARLY', 'MID', 'LATE'] as const
+
+  it('LATE·IP не існує, решта чотири клітинки є', () => {
+    for (const b of BUCKETS) {
+      expect(table.vs4bet[b].OOP, `${b}·OOP`).toBeDefined()
+      expect(table.vs4bet[b].IP !== undefined, `${b}·IP`).toBe(b !== 'LATE')
+    }
+  })
+
+  it('5-бет і колл не перетинаються і лежать у 3-беті героя проти цієї групи', () => {
+    for (const b of BUCKETS) {
+      const threeBet = table.vsRaise[b].raise
+      for (const [side, cell] of Object.entries(table.vs4bet[b])) {
+        for (const h of cell.call) expect(cell.raise.has(h), `${b}·${side} ${h}`).toBe(false)
+        for (const h of [...cell.raise, ...cell.call]) expect(threeBet.has(h), `${b}·${side} ${h} поза 3-бетом`).toBe(true)
+      }
+    }
+  })
+
+  it('без позиції 4-бет не коллиться', () => {
+    for (const b of BUCKETS) expect(table.vs4bet[b].OOP?.call.size, b).toBe(0)
+  })
+})
+
 describe('6-max: споти', () => {
   it.each(SCENARIO_KEYS)('%s садить лише місця 6-max і має непорожній діапазон', (scen) => {
     for (let i = 0; i < 400; i++) {
@@ -105,6 +130,7 @@ describe('6-max: споти', () => {
       iso: ['HJ', 'CO', 'BTN', 'SB'],
       vsraise: ['HJ', 'CO', 'BTN', 'SB', 'BB'],
       vs3bet: ['UTG', 'HJ', 'CO', 'BTN'],
+      vs4bet: ['HJ', 'CO', 'BTN', 'SB', 'BB'],
     }
     for (const scen of SCENARIO_KEYS) {
       const seen = new Set<Position>()

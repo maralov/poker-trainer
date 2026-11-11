@@ -54,6 +54,15 @@ describe('drillPool', () => {
     expect(drillPool(p, 'vs3bet', T9).map((x) => `${x.pos}|${x.hand}`)).toEqual(['UTG|AQo', 'BTN|65s'])
   })
 
+  it('vs4bet: відкидає позиції без опенера раніше й руки, що ніде не 3-бет', () => {
+    const p = withMistakes('vs4bet', [
+      ['UTG', 'AA', 3], // перед UTG відкрити нікому
+      ['BB', '72o', 3], // 72o не 3-бетиться ні проти кого
+      ['BB', 'A5s', 2],
+    ])
+    expect(drillPool(p, 'vs4bet', T9).map((x) => `${x.pos}|${x.hand}`)).toEqual(['BB|A5s'])
+  })
+
   it('не змішує сценарії', () => {
     const p = withMistakes('rfi', [['BTN', '72o', 3]])
     p.log.push(...withMistakes('iso', [['CO', 'K5s', 4]]).log)

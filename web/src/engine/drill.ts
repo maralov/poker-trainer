@@ -10,7 +10,7 @@
 import { pick } from './cards'
 import { isHand } from './ranges'
 import type { PreProgress } from './progress'
-import { buildSpot } from './spots'
+import { buildSpot, vs4betOpeners } from './spots'
 import type { TableConfig } from './tables'
 import type { Hand, Position, Scenario, Rng, Spot } from './types'
 
@@ -47,6 +47,7 @@ function positionFits(scen: Scenario, pos: Position, hand: Hand, table: TableCon
   // Помилки зі старої версії, де руку роздавали не з RFI героя («UTG, 65s»),
   // такого споту вже не відтворять — їх не тренуємо.
   if (scen === 'vs3bet') return table.rfi[pos]?.has(hand) === true && pos !== 'SB' && pos !== 'BB'
+  if (scen === 'vs4bet') return vs4betOpeners(table, pos, hand).length > 0
   return true
 }
 

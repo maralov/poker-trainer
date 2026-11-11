@@ -10,10 +10,10 @@ import { describe, expect, it } from 'vitest'
 
 import { mulberry32, rangeSig } from '../test/rng'
 import refSpots from './__fixtures__/ref-spots.json'
-import { ISO, RFI, TIGHTER2, VS3BET_SIDE, VS_RAISE, type IsoPosition } from './ranges'
+import { ISO, RFI, TIGHTER2, VS3BET_SIDE, VS4BET_SIDE, VS_RAISE, type IsoPosition } from './ranges'
 import { buildSpot } from './spots'
 import { ACTION_ORDER, SCENARIO_KEYS, type Position, type Scenario, type Spot } from './types'
-import { TABLES, tableVs3bet } from './tables'
+import { TABLES, tableVs3bet, tableVs4bet } from './tables'
 
 const T9 = TABLES['9max']
 
@@ -58,8 +58,9 @@ const shape = (q: Spot): RefSpot => ({
   callSig: rangeSig(q.ranges.call),
 })
 
-// vs3bet свідомо відійшов від референсу — його перевіряють інваріанти нижче.
-const REF_SCENARIOS = SCENARIO_KEYS.filter((s) => s !== 'vs3bet')
+// vs3bet свідомо відійшов від референсу, vs4bet у ньому немає — обидва
+// перевіряють інваріанти нижче.
+const REF_SCENARIOS = SCENARIO_KEYS.filter((s) => s !== 'vs3bet' && s !== 'vs4bet')
 
 describe.each(REF_SCENARIOS)('еквівалентність референсу · %s', (scen) => {
   it('випадкові споти збігаються посидно', () => {
@@ -228,6 +229,34 @@ describe('інваріанти споту', () => {
     for (let i = 1; i <= 500; i++) {
       const q = buildSpot({ table: T9, scenarios: ['vs3bet'], missed, rng: mulberry32(i) })
       expect(RFI[q.heroPos]?.has(q.hand), `${q.heroPos} ${q.hand}`).toBe(true)
+    }
+  })
+
+  it('vs4bet: опенер 4-бетить, герой 3-бетив пізніше, решта скинула', () => {
+    for (const q of sample('vs4bet')) {
+      const opener = q.villainPos as Position
+      expect(q.seats[opener]).toBe('4bet')
+      expect(q.seats[q.heroPos]).toBe('3bet')
+      for (const p of ACTION_ORDER) if (p !== opener && p !== q.heroPos) expect(q.seats[p]).toBe('fold')
+      expect(ACTION_ORDER.indexOf(opener)).toBeLessThan(ACTION_ORDER.indexOf(q.heroPos))
+      const side = VS4BET_SIDE(q.heroPos)
+      const cell = tableVs4bet(T9, opener, side)
+      expect(q.ranges.raise).toBe(cell.raise)
+      expect(q.ranges.call).toBe(cell.call)
+      // 4-бет + 3-бет + мертві блайнди: 22+9+1.5 у позиції, 26+12+(1|0.5) з блайнда.
+      const pot = q.heroPos === 'SB' ? 39 : q.heroPos === 'BB' ? 38.5 : 32.5
+      expect(q.potBB, `${opener} vs ${q.heroPos}`).toBe(pot)
+      const bucket = T9.bucket(opener)
+      expect(VS_RAISE[bucket].raise.has(q.hand), `${q.hand} не з 3-бету проти ${bucket}`).toBe(true)
+    }
+  })
+
+  it('vs4bet: drill відтворює руку проти опенера, проти якого вона — 3-бет', () => {
+    // A5s у 9-max 3-бетиться лише проти LATE (BTN), тож опенер мусить бути BTN.
+    for (let i = 1; i <= 50; i++) {
+      const q = buildSpot({ table: T9, force: { scen: 'vs4bet', heroPos: 'BB', hand: 'A5s' }, rng: mulberry32(i) })
+      expect(q.villainPos).toBe('BTN')
+      expect(q.correct).toBe('fold')
     }
   })
 

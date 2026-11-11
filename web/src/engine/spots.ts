@@ -11,8 +11,8 @@
  */
 
 import { WEIGHTED, dealFromHand, pick, union } from './cards'
-import { HERO_CTX, TEMPTING, VS3BET_SIDE, isIsoPosition } from './ranges'
-import { seatAt, tableIso, tableRfi, tableVs3bet, type TableConfig } from './tables'
+import { HERO_CTX, TEMPTING, VS3BET_SIDE, VS4BET_SIDE, isIsoPosition } from './ranges'
+import { seatAt, tableIso, tableRfi, tableVs3bet, tableVs4bet, type TableConfig } from './tables'
 import {
   type Action,
   type ActionOption,
@@ -78,6 +78,8 @@ export const actionName = (k: Action, scen: Scenario): string =>
         ? '3-бет'
         : scen === 'vs3bet'
           ? '4-бет'
+          : scen === 'vs4bet'
+            ? '5-бет'
           : scen === 'iso'
             ? 'ізо-рейз'
             : 'рейз'
@@ -234,6 +236,60 @@ function buildVs3bet(table: TableConfig, force: ForceSpot | undefined, rng: Rng)
   }
 }
 
+/**
+ * Опенери, проти яких герой міг 3-бетити цю руку: раніше героя, не пізніше BTN
+ * (SB-опен проти BB тут не тренується — як і у vsraise).
+ */
+export function vs4betOpeners(table: TableConfig, heroPos: Position, hand: Hand | null): Position[] {
+  const hi = table.seats.indexOf(heroPos)
+  return table.seats
+    .slice(0, Math.min(hi, table.seats.length - 2))
+    .filter((p) => hand === null || table.vsRaise[table.bucket(p)].raise.has(hand))
+}
+
+function buildVs4bet(table: TableConfig, force: ForceSpot | undefined, rng: Rng): ScenarioShape {
+  const order = table.seats
+  const n = order.length
+  let opener: Position
+  let heroPos: Position
+  if (force) {
+    heroPos = force.heroPos
+    // Drill знає руку й позицію, але не опенера: беремо того, проти кого ця рука — 3-бет.
+    const cands = vs4betOpeners(table, heroPos, force.hand)
+    opener = pick(cands.length ? cands : vs4betOpeners(table, heroPos, null), rng)
+  } else {
+    const oi = Math.floor(rng() * (n - 2))
+    opener = seatAt(table, oi)
+    heroPos = seatAt(table, oi + 1 + Math.floor(rng() * (n - 1 - oi)))
+  }
+
+  // Усі, крім опенера й героя, уже скинули: інакше хід не повернувся б до героя.
+  const seats = emptySeats()
+  for (const p of order) seats[p] = 'fold'
+  seats[opener] = '4bet'
+  seats[heroPos] = '3bet'
+
+  const side = VS4BET_SIDE(heroPos)
+  const cell = tableVs4bet(table, opener, side)
+  // 3-бет 9bb у позиції / 12bb з блайнда; 4-бет ≈2.4x / 2.2x.
+  const threeBet = side === 'IP' ? 9 : 12
+  const fourBet = side === 'IP' ? 22 : 26
+  const deadBlinds = heroPos === 'SB' ? 1 : heroPos === 'BB' ? 0.5 : 1.5
+
+  return {
+    heroPos,
+    seats,
+    ranges: { raise: cell.raise, call: cell.call },
+    options: OPT_THREE_WAY('5-бет олл-ін'),
+    prompt: `${opener} відкрив, ти поставив 3-бет ${threeBet}bb, ${opener} відповів 4-бетом ${fourBet}bb. Ти ${side === 'IP' ? 'в позиції' : 'без позиції'}, стеки 100bb.`,
+    potBB: fourBet + threeBet + deadBlinds,
+    explainExtra: cell.note,
+    villainPos: opener,
+    limpers: null,
+    deal: table.vsRaise[table.bucket(opener)].raise,
+  }
+}
+
 export function buildSpot(options: BuildSpotOptions): Spot {
   const table = options.table
   const rng = options.rng ?? Math.random
@@ -249,7 +305,9 @@ export function buildSpot(options: BuildSpotOptions): Spot {
         ? buildIso(table, force, rng)
         : scen === 'vsraise'
           ? buildVsRaise(table, force, rng)
-          : buildVs3bet(table, force, rng)
+          : scen === 'vs3bet'
+            ? buildVs3bet(table, force, rng)
+            : buildVs4bet(table, force, rng)
 
   const deal = shape.deal
   const relevant = deal ? [...deal] : [...union(shape.ranges.raise, shape.ranges.call, TEMPTING)]

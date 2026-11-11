@@ -197,7 +197,7 @@ describe('примітиви', () => {
     expect(isHand('')).toBe(false)
   })
 
-  it('усі чотири сценарії мають підписи', () => {
-    expect(Object.keys(SCENARIOS)).toEqual(['rfi', 'iso', 'vsraise', 'vs3bet'])
+  it('усі сценарії мають підписи', () => {
+    expect(Object.keys(SCENARIOS)).toEqual(['rfi', 'iso', 'vsraise', 'vs3bet', 'vs4bet'])
   })
 })

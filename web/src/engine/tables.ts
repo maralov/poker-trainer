@@ -20,6 +20,7 @@ import {
   S,
   TIGHTER2,
   VS_3BET,
+  VS_4BET,
   VS_RAISE,
   WEAK_O,
   cell3,
@@ -29,6 +30,7 @@ import {
   type Vs3betCell,
   type Vs3betDef,
   type Vs3betSide,
+  type Vs4betDef,
   type VsRaiseDef,
 } from './ranges'
 import { ACTION_ORDER, type Hand, type Position, type TableId } from './types'
@@ -49,6 +51,7 @@ export interface TableConfig {
   readonly bucket: (p: Position) => RaiserBucket
   readonly vsRaise: Readonly<Record<RaiserBucket, VsRaiseDef>>
   readonly vs3bet: Vs3betDef
+  readonly vs4bet: Vs4betDef
   readonly notes: Readonly<Partial<Record<Position, string>>>
   /** Ворота: скільки позицій мають набрати норму («усі, крім однієї»). */
   readonly posCount: number
@@ -66,6 +69,7 @@ const NINE: TableConfig = {
   bucket: BUCKET,
   vsRaise: VS_RAISE,
   vs3bet: VS_3BET,
+  vs4bet: VS_4BET,
   notes: NOTES,
   posCount: 8,
 }
@@ -243,6 +247,40 @@ const SIX: TableConfig = {
       ),
     },
   },
+  // Підмножини 6-max 3-бету героя; ширший 3-бет означає більше фолдів на 4-бет.
+  vs4bet: {
+    EARLY: {
+      IP: cell3(
+        S('KK+', 'AKs', 'AKo'),
+        S('QQ', 'AQs'),
+        '4-бет з UTG — це QQ+ і AK. У позиції QQ і AQs — колл: 5-бетом ти виштовхнеш лише гірші руки, яких у нього майже немає.',
+      ),
+      OOP: cell3(
+        S('QQ+', 'AKs', 'AKo'),
+        S(),
+        'Без позиції 4-бет-пот не коллять: або олл-ін, або фолд. QQ тут уже олл-ін.',
+      ),
+    },
+    MID: {
+      IP: cell3(
+        S('KK+', 'AKs', 'AKo'),
+        S('JJ-QQ', 'AQs'),
+        'У позиції колл 4-бету з QQ, JJ і AQs. Блефові 3-бети (A5s, A4s) і AQo — фолд.',
+      ),
+      OOP: cell3(
+        S('QQ+', 'AKs', 'AKo'),
+        S(),
+        'Без позиції 4-бет-пот не коллять: QQ+ і AK — олл-ін, решта 3-бетів — фолд.',
+      ),
+    },
+    LATE: {
+      OOP: cell3(
+        S('JJ+', 'AKs', 'AKo'),
+        S(),
+        'Баттон 4-бетить широко, тож з блайнда олл-ін уже з JJ. Решта 3-бетів, зокрема всі блефи, — фолд.',
+      ),
+    },
+  },
   notes: {
     UTG: "П'ять гравців за спиною. Діапазон приблизно як LJ на 9-max: пари, тузи в масті, сильні бродвеї.",
     HJ: 'Додаються дрібні пари, ATo і KJo. Попереду ще чотири гравці — не поспішай із сміттям.',
@@ -275,6 +313,14 @@ export function tableVs3bet(table: TableConfig, heroPos: Position, side: Vs3betS
   const bucket = table.bucket(heroPos)
   const c = table.vs3bet[bucket][side]
   if (c === undefined) throw new Error(`${table.label}: немає захисту від 3-бету ${bucket}·${side}`)
+  return c
+}
+
+/** Клітинка захисту від 4-бету; кидає, якщо такого споту не буває (LATE·IP). */
+export function tableVs4bet(table: TableConfig, opener: Position, side: Vs3betSide): Vs3betCell {
+  const bucket = table.bucket(opener)
+  const c = table.vs4bet[bucket][side]
+  if (c === undefined) throw new Error(`${table.label}: немає захисту від 4-бету ${bucket}·${side}`)
   return c
 }
 
