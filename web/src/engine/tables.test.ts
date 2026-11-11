@@ -48,12 +48,65 @@ describe('6-max: діапазони', () => {
     }
   })
 
-  it('проти 3-бету колл і 4-бет не перетинаються', () => {
-    for (const h of T6.vs3bet.call) expect(T6.vs3bet.raise.has(h), h).toBe(false)
-  })
 
   it('кожне місце, з якого бувають споти, має підказку', () => {
     for (const p of T6.seats) expect(T6.notes[p], p).toBeTruthy()
+  })
+})
+
+describe.each(Object.values(TABLES))('$label: захист від 3-бету', (table) => {
+  const BUCKETS = ['EARLY', 'MID', 'LATE'] as const
+  // Хто з групи може відкритись і отримати 3-бет: усі, хто відкриває, крім SB.
+  const openers = (b: (typeof BUCKETS)[number]) =>
+    table.openOrder.filter((p) => p !== 'SB' && table.bucket(p) === b)
+
+  it('LATE·OOP не існує, решта чотири клітинки є', () => {
+    for (const b of BUCKETS) {
+      expect(table.vs3bet[b].IP, `${b}·IP`).toBeDefined()
+      expect(table.vs3bet[b].OOP !== undefined, `${b}·OOP`).toBe(b !== 'LATE')
+    }
+  })
+
+  it('4-бет і колл не перетинаються і лежать у RFI групи опенера', () => {
+    for (const b of BUCKETS) {
+      const rfi = new Set(openers(b).flatMap((p) => [...(table.rfi[p] ?? [])]))
+      for (const [side, cell] of Object.entries(table.vs3bet[b])) {
+        for (const h of cell.call) expect(cell.raise.has(h), `${b}·${side} ${h}`).toBe(false)
+        for (const h of [...cell.raise, ...cell.call]) expect(rfi.has(h), `${b}·${side} ${h} поза RFI`).toBe(true)
+      }
+    }
+  })
+
+  it('у позиції захищаєшся ширше, ніж без неї', () => {
+    for (const b of ['EARLY', 'MID'] as const) {
+      const { IP, OOP } = table.vs3bet[b]
+      expect(pct(IP?.call ?? new Set())).toBeGreaterThan(pct(OOP?.call ?? new Set()))
+    }
+  })
+})
+
+describe.each(Object.values(TABLES))('$label: захист від 4-бету', (table) => {
+  const BUCKETS = ['EARLY', 'MID', 'LATE'] as const
+
+  it('LATE·IP не існує, решта чотири клітинки є', () => {
+    for (const b of BUCKETS) {
+      expect(table.vs4bet[b].OOP, `${b}·OOP`).toBeDefined()
+      expect(table.vs4bet[b].IP !== undefined, `${b}·IP`).toBe(b !== 'LATE')
+    }
+  })
+
+  it('5-бет і колл не перетинаються і лежать у 3-беті героя проти цієї групи', () => {
+    for (const b of BUCKETS) {
+      const threeBet = table.vsRaise[b].raise
+      for (const [side, cell] of Object.entries(table.vs4bet[b])) {
+        for (const h of cell.call) expect(cell.raise.has(h), `${b}·${side} ${h}`).toBe(false)
+        for (const h of [...cell.raise, ...cell.call]) expect(threeBet.has(h), `${b}·${side} ${h} поза 3-бетом`).toBe(true)
+      }
+    }
+  })
+
+  it('без позиції 4-бет не коллиться', () => {
+    for (const b of BUCKETS) expect(table.vs4bet[b].OOP?.call.size, b).toBe(0)
   })
 })
 
@@ -77,6 +130,7 @@ describe('6-max: споти', () => {
       iso: ['HJ', 'CO', 'BTN', 'SB'],
       vsraise: ['HJ', 'CO', 'BTN', 'SB', 'BB'],
       vs3bet: ['UTG', 'HJ', 'CO', 'BTN'],
+      vs4bet: ['HJ', 'CO', 'BTN', 'SB', 'BB'],
     }
     for (const scen of SCENARIO_KEYS) {
       const seen = new Set<Position>()

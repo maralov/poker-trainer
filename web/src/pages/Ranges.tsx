@@ -6,7 +6,7 @@ import { Chips } from '../components/Chips'
 import { Grid13 } from '../components/Grid13'
 import { RangeLegend } from '../components/RangeLegend'
 import { pct, union } from '../engine/cards'
-import { SCENARIOS, type HeroContext, type RaiserBucket } from '../engine/ranges'
+import { SCENARIOS, type HeroContext, type RaiserBucket, type Vs3betSide } from '../engine/ranges'
 import type { TableConfig } from '../engine/tables'
 import {
   SCENARIO_KEYS,
@@ -23,7 +23,10 @@ const subsFor = (table: TableConfig): Readonly<Record<Scenario, readonly string[
   // З першого місця ізолювати нікого: перед ним немає лімперів.
   iso: table.isoOrder.filter((p) => p !== table.seats[0]),
   vsraise: ['EARLY·POS', 'EARLY·BB', 'MID·POS', 'MID·BB', 'LATE·POS', 'LATE·SB', 'LATE·BB'],
-  vs3bet: ['Загальне правило'],
+  // LATE·OOP немає: з BTN після героя лише блайнди, тож він завжди в позиції.
+  vs3bet: ['EARLY·OOP', 'EARLY·IP', 'MID·OOP', 'MID·IP', 'LATE·IP'],
+  // LATE·IP немає: після BTN 3-бетити можуть лише блайнди.
+  vs4bet: ['EARLY·IP', 'EARLY·OOP', 'MID·IP', 'MID·OOP', 'LATE·OOP'],
 })
 
 const EMPTY: ReadonlySet<Hand> = new Set()
@@ -62,10 +65,22 @@ function buildView(table: TableConfig, scen: Scenario, sub: string): View {
       note: `Реакція на рейз з ${def.label}, коли ти ${where}. ${def.note}`,
     }
   }
+  const [b, side] = sub.split('·') as [RaiserBucket, Vs3betSide]
+  if (scen === 'vs4bet') {
+    const cell = table.vs4bet[b][side]
+    const who = side === 'IP' ? 'ти 3-бетив у позиції' : 'ти 3-бетив з блайнда'
+    return {
+      ranges: { raise: cell?.raise ?? EMPTY, call: cell?.call ?? EMPTY },
+      legendLabel: '5-бет',
+      note: `4-бет від опенера з групи ${b}, ${who}. Рука — з твого 3-бету проти цієї групи. ${cell?.note ?? ''}`,
+    }
+  }
+  const cell = table.vs3bet[b][side]
+  const who = side === 'IP' ? 'з блайндів, ти в позиції' : 'з позиції після тебе, ти без позиції'
   return {
-    ranges: { raise: table.vs3bet.raise, call: table.vs3bet.call },
+    ranges: { raise: cell?.raise ?? EMPTY, call: cell?.call ?? EMPTY },
     legendLabel: '4-бет',
-    note: `${table.vs3bet.note} Діапазон свідомо спрощений: на мікролімітах дисципліна тут важить більше за точність.`,
+    note: `Ти відкрив з групи ${b}, 3-бет ${who}. ${cell?.note ?? ''}`,
   }
 }
 

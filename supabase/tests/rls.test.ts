@@ -216,6 +216,13 @@ describe('Обмеження цілісності', () => {
     expect(ok.data?.is_correct).toBe(true)
   })
 
+  it('приймає сценарій «проти 4-бету»', async () => {
+    const { error } = await alice.client
+      .from('attempts')
+      .insert(attempt({ scenario: 'vs4bet', hero_pos: 'BB', villain_pos: 'BTN', hand: 'A5s' }))
+    expect(error).toBeNull()
+  })
+
   it.each([
     ['невідомий сценарій', { scenario: 'holdem' }],
     ['невідома позиція', { hero_pos: 'DEALER' }],

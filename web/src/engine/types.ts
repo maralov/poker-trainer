@@ -40,14 +40,14 @@ export const TABLE_IDS = ['9max', '6max'] as const
 export type TableId = (typeof TABLE_IDS)[number]
 export const isTableId = (v: unknown): v is TableId => v === '9max' || v === '6max'
 
-export const SCENARIO_KEYS = ['rfi', 'iso', 'vsraise', 'vs3bet'] as const
+export const SCENARIO_KEYS = ['rfi', 'iso', 'vsraise', 'vs3bet', 'vs4bet'] as const
 export type Scenario = (typeof SCENARIO_KEYS)[number]
 
 /** Дія героя. Назва на кнопці залежить від сценарію (див. actionName). */
 export type Action = 'raise' | 'call' | 'fold'
 
 /** Що зробив опонент на своєму сіті. `null` — ще не діяв. */
-export type SeatAction = 'fold' | 'limp' | 'raise' | '3bet'
+export type SeatAction = 'fold' | 'limp' | 'raise' | '3bet' | '4bet'
 
 /** Рука в канонічному записі: 'AA', 'AKs', 'AKo'. */
 export type Hand = string
@@ -103,7 +103,8 @@ export interface Spot {
   /** Контрольна рука в drill: та сама позиція, але поза пулом помилок. */
   readonly isControl: boolean
   /**
-   * Позиція опонента, який задав спот: опенер для vsraise, 3-бетор для vs3bet.
+   * Позиція опонента, який задав спот: опенер для vsraise, 3-бетор для vs3bet,
+   * 4-бетор (той самий опенер) для vs4bet.
    * Для rfi та iso — null. Поле не існує в HTML-референсі; додане, щоб drill
    * міг відтворити точний контекст (див. CLAUDE.md).
    */

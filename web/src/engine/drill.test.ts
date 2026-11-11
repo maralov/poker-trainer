@@ -44,6 +44,25 @@ describe('drillPool', () => {
     ])
   })
 
+  it('vs3bet: відкидає помилки, яких тепер не буває (рука поза RFI героя)', () => {
+    // 65s з UTG у 9-max не відкривається — стара роздача, яку спот уже не відтворить.
+    const p = withMistakes('vs3bet', [
+      ['UTG', '65s', 4],
+      ['UTG', 'AQo', 2],
+      ['BTN', '65s', 1],
+    ])
+    expect(drillPool(p, 'vs3bet', T9).map((x) => `${x.pos}|${x.hand}`)).toEqual(['UTG|AQo', 'BTN|65s'])
+  })
+
+  it('vs4bet: відкидає позиції без опенера раніше й руки, що ніде не 3-бет', () => {
+    const p = withMistakes('vs4bet', [
+      ['UTG', 'AA', 3], // перед UTG відкрити нікому
+      ['BB', '72o', 3], // 72o не 3-бетиться ні проти кого
+      ['BB', 'A5s', 2],
+    ])
+    expect(drillPool(p, 'vs4bet', T9).map((x) => `${x.pos}|${x.hand}`)).toEqual(['BB|A5s'])
+  })
+
   it('не змішує сценарії', () => {
     const p = withMistakes('rfi', [['BTN', '72o', 3]])
     p.log.push(...withMistakes('iso', [['CO', 'K5s', 4]]).log)
