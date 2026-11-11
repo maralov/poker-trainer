@@ -264,11 +264,70 @@ export const VS_RAISE: Readonly<Record<RaiserBucket, VsRaiseDef>> = {
   LATE: disjoint(VS_RAISE_RAW.LATE),
 }
 
-export const VS_3BET = {
-  raise: S('KK+', 'AKs'),
-  call: S('TT-QQ', 'AKo', 'AQs'),
-  note: 'На 5/10 3-бет майже завжди означає реальну руку. Це той спот, де дисциплінований фолд коштує дешевше за будь-яку креативність.',
-} as const
+/** Чи гратиме герой постфлоп після 3-бетора (IP) чи перед ним (OOP). */
+export type Vs3betSide = 'IP' | 'OOP'
+
+export interface Vs3betCell {
+  readonly raise: ReadonlySet<Hand>
+  readonly call: ReadonlySet<Hand>
+  readonly note: string
+}
+
+/**
+ * Захист від 3-бету: група опенера × IP/OOP. LATE·OOP немає — з BTN після
+ * героя лишаються тільки блайнди, тож він завжди в позиції.
+ */
+export type Vs3betDef = Readonly<Record<RaiserBucket, Readonly<Partial<Record<Vs3betSide, Vs3betCell>>>>>
+
+/** Колл = колл мінус 4-бет: той самий захист від перетину, що й `disjoint`. */
+export const cell3 = (raise: Set<Hand>, call: Set<Hand>, note: string): Vs3betCell => ({
+  raise,
+  call: minus(call, raise),
+  note,
+})
+
+/**
+ * Базова стратегія 100bb, не експлойт під тайтовий пул (як було в референсі:
+ * `KK+ AKs` / `TT-QQ AKo AQs` для будь-якого споту). Спека:
+ * docs/superpowers/specs/2026-11-11-vs3bet-defense-design.md.
+ */
+export const VS_3BET: Vs3betDef = {
+  EARLY: {
+    OOP: cell3(
+      S('QQ+', 'AKs', 'AKo'),
+      S('88-JJ', 'AJs-AQs', 'KQs', 'QJs', 'JTs'),
+      'Ранній опен проти 3-бету з позиції: твій діапазон сильний, але без позиції колл лише з руками, що добре реалізують еквіті. Блефових 4-бетів з ранніх позицій 9-max немає — A5s ти тут не відкриваєш.',
+    ),
+    IP: cell3(
+      S('QQ+', 'AKs', 'AKo'),
+      S('77-JJ', 'ATs-AQs', 'KJs-KQs', 'QJs', 'JTs', 'T9s', 'AQo'),
+      '3-бет із блайндів: позиція твоя, тож колл ширший — середні пари, одномасні бродвеї й конектори. AQo вже колл, а не фолд.',
+    ),
+  },
+  MID: {
+    OOP: cell3(
+      S('QQ+', 'AKs', 'AKo', 'A4s-A5s'),
+      S('88-JJ', 'AJs-AQs', 'KQs', 'QJs', 'JTs'),
+      'Без позиції колл вузький: більшість рук — 4-бет або фолд. A5s і A4s — 4-бет-блеф: блокують тузів, а коллом без позиції програють.',
+    ),
+    IP: cell3(
+      S('QQ+', 'AKs', 'AKo', 'A4s-A5s'),
+      S('66-JJ', 'ATs-AQs', 'KJs-KQs', 'QJs', 'JTs', 'T9s', '98s', '87s', 'AQo', 'AJo', 'KQo'),
+      '3-бет із блайндів проти середнього опену: у позиції захищайся коллом широко — пари, одномасні бродвеї й конектори.',
+    ),
+  },
+  LATE: {
+    IP: cell3(
+      S('QQ+', 'AKs', 'AKo', 'A4s-A5s'),
+      S('55-JJ', 'A9s-AQs', 'KTs+', 'QTs+', 'J9s+', 'T9s', '98s', '87s', '76s', 'AQo', 'AJo', 'KQo'),
+      'Баттон проти 3-бету з блайндів: ти відкриваєш найширше і граєш у позиції, тож фолдити надто багато — найдорожча помилка цього споту.',
+    ),
+  },
+}
+
+/** Герой у позиції рівно тоді, коли 3-бет зробив блайнд. */
+export const VS3BET_SIDE = (threeBettor: Position): Vs3betSide =>
+  threeBettor === 'SB' || threeBettor === 'BB' ? 'IP' : 'OOP'
 
 export const NOTES: Readonly<Record<Position, string>> = {
   UTG: "Дев'ять гравців за спиною. Відкривай лише те, що не соромно грати в мультипоті.",

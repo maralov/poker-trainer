@@ -5,11 +5,14 @@
  *   1. Rng інжектується — інакше тести неможливі.
  *   2. Мапа `missed` приходить аргументом, а не читається з глобального DB.
  *   3. Спот несе villainPos і limpers, щоб журнал спроб зберігав повний контекст.
+ *   4. vs3bet перероблений (2026-11-11-vs3bet-defense-design.md): діапазон
+ *      залежить від групи опенера і IP/OOP, розмір 3-бету — від позиції 3-бетора,
+ *      рука роздається з RFI героя. Еквівалентність референсу для нього знята.
  */
 
 import { WEIGHTED, dealFromHand, pick, union } from './cards'
-import { HERO_CTX, TEMPTING, isIsoPosition } from './ranges'
-import { seatAt, tableIso, tableRfi, type TableConfig } from './tables'
+import { HERO_CTX, TEMPTING, VS3BET_SIDE, isIsoPosition } from './ranges'
+import { seatAt, tableIso, tableRfi, tableVs3bet, type TableConfig } from './tables'
 import {
   type Action,
   type ActionOption,
@@ -89,6 +92,11 @@ interface ScenarioShape {
   explainExtra: string
   villainPos: Position | null
   limpers: number | null
+  /**
+   * Руки, які герой може тримати після своєї попередньої дії. Задано — рука
+   * роздається лише звідси: інакше «ти відкрив з UTG» приходило б з 72o.
+   */
+  deal?: ReadonlySet<Hand>
 }
 
 // Індекси нижче узагальнені через n = seats.length так, що для 9-max
@@ -205,16 +213,24 @@ function buildVs3bet(table: TableConfig, force: ForceSpot | undefined, rng: Rng)
   for (const p of order.slice(hi + 1, ti)) seats[p] = 'fold'
   seats[threeBettor] = '3bet'
 
+  const side = VS3BET_SIDE(threeBettor)
+  const cell = tableVs3bet(table, heroPos, side)
+  // Без позиції 3-бетор ставить більше: 4x з блайндів, 3x у позиції.
+  const size = side === 'IP' ? 12 : 9
+  // Опен 3bb + 3-бет + блайнди, які лишились у банку (свій блайнд 3-бетор уже доклав).
+  const deadBlinds = threeBettor === 'SB' ? 1 : threeBettor === 'BB' ? 0.5 : 1.5
+
   return {
     heroPos,
     seats,
-    ranges: { raise: table.vs3bet.raise, call: table.vs3bet.call },
+    ranges: { raise: cell.raise, call: cell.call },
     options: OPT_THREE_WAY('4-бет'),
-    prompt: `Ти відкрив з ${heroPos}, ${threeBettor} поставив 3-бет 10bb.`,
-    potBB: 14.5,
-    explainExtra: table.vs3bet.note,
+    prompt: `Ти відкрив з ${heroPos}, ${threeBettor} поставив 3-бет ${size}bb. Ти ${side === 'IP' ? 'в позиції' : 'без позиції'}.`,
+    potBB: 3 + size + deadBlinds,
+    explainExtra: cell.note,
     villainPos: threeBettor,
     limpers: null,
+    deal: tableRfi(table, heroPos),
   }
 }
 
@@ -235,7 +251,10 @@ export function buildSpot(options: BuildSpotOptions): Spot {
           ? buildVsRaise(table, force, rng)
           : buildVs3bet(table, force, rng)
 
-  const relevant = [...union(shape.ranges.raise, shape.ranges.call, TEMPTING)]
+  const deal = shape.deal
+  const relevant = deal ? [...deal] : [...union(shape.ranges.raise, shape.ranges.call, TEMPTING)]
+  // Зважений мішок у межах того, що герой міг тримати, — пропорції комбо зберігаються.
+  const weighted = deal ? WEIGHTED.filter((h) => deal.has(h)) : WEIGHTED
 
   let hand: Hand
   let isControl = false
@@ -249,14 +268,17 @@ export function buildSpot(options: BuildSpotOptions): Spot {
     hand = pick(cand.length ? cand : relevant, rng)
   } else {
     const missedKeys = Object.keys(missed).filter(
-      (k) => (missed[k] ?? 0) > 0 && k.startsWith(`${scen}|`),
+      (k) =>
+        (missed[k] ?? 0) > 0 &&
+        k.startsWith(`${scen}|`) &&
+        (!deal || deal.has(k.split('|')[2] as Hand)),
     )
     // Одне число r обслуговує обидві розвилки — так само, як у референсі.
     const r = rng()
     if (missedKeys.length >= 4 && r < 0.25) {
       hand = pick(missedKeys, rng).split('|')[2] ?? pick(relevant, rng)
     } else {
-      hand = r < 0.7 ? pick(relevant, rng) : pick(WEIGHTED, rng)
+      hand = r < 0.7 ? pick(relevant, rng) : pick(weighted, rng)
     }
   }
 

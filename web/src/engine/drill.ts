@@ -42,8 +42,11 @@ export const drillKey = (scen: Scenario, pos: Position, hand: Hand): string =>
  * RFI з BB не існує — такий запис у журналі означав би пошкоджені дані,
  * і без цієї перевірки drill упав би на побудові споту.
  */
-function positionFits(scen: Scenario, pos: Position): boolean {
+function positionFits(scen: Scenario, pos: Position, hand: Hand, table: TableConfig): boolean {
   if (scen === 'rfi') return pos !== 'BB'
+  // Помилки зі старої версії, де руку роздавали не з RFI героя («UTG, 65s»),
+  // такого споту вже не відтворять — їх не тренуємо.
+  if (scen === 'vs3bet') return table.rfi[pos]?.has(hand) === true && pos !== 'SB' && pos !== 'BB'
   return true
 }
 
@@ -57,7 +60,7 @@ export function drillPool(progress: PreProgress, scen: Scenario, table: TableCon
   for (const e of progress.log) {
     if (e.s !== scen) continue
     if (!seated.has(e.p) || !isHand(e.h)) continue
-    if (!positionFits(scen, e.p)) continue
+    if (!positionFits(scen, e.p, e.h, table)) continue
     const k = `${e.p}|${e.h}`
     agg.set(k, (agg.get(k) ?? 0) + 1)
   }
@@ -107,6 +110,9 @@ export function drillSpot(
     const bag: PoolItem[] = []
     for (const it of pool) for (let i = 0; i < it.n; i++) bag.push(it)
     const it = pick(bag, rng)
+    // shortcut: журнал помилок не зберігає 3-бетора, тож vs3bet-лік повторює руку
+    // з тієї ж позиції проти випадкового 3-бетора (IP чи OOP може змінитись).
+    // Апгрейд — коли mistakes() почне віддавати villain_pos.
     return buildSpot({ table, force: { scen, heroPos: it.pos, hand: it.hand }, rng })
   }
 

@@ -13,7 +13,6 @@ import {
   RFI,
   SCENARIOS,
   TEMPTING,
-  VS_3BET,
   VS_RAISE,
   WEAK_O,
   isHand,
@@ -162,16 +161,8 @@ describe('VS_RAISE', () => {
   })
 })
 
-describe('VS_3BET', () => {
-  it('збігається з еталоном', () => {
-    expect(sorted(VS_3BET.raise)).toEqual(truth.vs3bet.raise)
-    expect(sorted(VS_3BET.call)).toEqual(truth.vs3bet.call)
-  })
-
-  it('рейз і колл не перетинаються', () => {
-    for (const h of VS_3BET.raise) expect(VS_3BET.call.has(h)).toBe(false)
-  })
-})
+// VS_3BET свідомо відійшов від еталону (2026-11-11-vs3bet-defense-design.md):
+// його клітинки обох форматів перевіряє tables.test.ts.
 
 describe('примітиви', () => {
   it('169 рук у сітці, 663 у зваженому мішку', () => {

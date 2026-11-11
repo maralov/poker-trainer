@@ -4,7 +4,9 @@
  * параметром. Див. docs/superpowers/specs/2026-11-11-six-max-design.md.
  *
  * 9-max збирається з констант ranges.ts без жодних змін — це референс,
- * звірений фікстурами. 6-max не має референсу: діапазони задає спека.
+ * звірений фікстурами. Виняток — захист від 3-бету: він свідомо відійшов
+ * від референсу (2026-11-11-vs3bet-defense-design.md). 6-max не має
+ * референсу: діапазони задає спека.
  */
 
 import { minus } from './cards'
@@ -20,18 +22,16 @@ import {
   VS_3BET,
   VS_RAISE,
   WEAK_O,
+  cell3,
   disjoint,
   type IsoPosition,
   type RaiserBucket,
+  type Vs3betCell,
+  type Vs3betDef,
+  type Vs3betSide,
   type VsRaiseDef,
 } from './ranges'
 import { ACTION_ORDER, type Hand, type Position, type TableId } from './types'
-
-export interface Vs3betDef {
-  readonly raise: ReadonlySet<Hand>
-  readonly call: ReadonlySet<Hand>
-  readonly note: string
-}
 
 export interface TableConfig {
   readonly id: TableId
@@ -209,10 +209,39 @@ const SIX: TableConfig = {
     MID: disjoint(SIX_VS_RAISE_RAW.MID),
     LATE: disjoint(SIX_VS_RAISE_RAW.LATE),
   },
+  // 3-бетор у 6-max ширший, тож захист ширший, ніж у 9-max, у кожній клітинці.
   vs3bet: {
-    raise: S('QQ+', 'AKs', 'AKo', 'A5s'),
-    call: S('99-JJ', 'AQs', 'AJs', 'KQs', 'AQo'),
-    note: 'У 6-max 3-бетор ширший, ніж на 9-max: QQ і AK — уже 4-бет, а середні пари й сильні бродвеї в масті — колл.',
+    EARLY: {
+      OOP: cell3(
+        S('QQ+', 'AKs', 'AKo', 'A5s'),
+        S('88-JJ', 'AJs-AQs', 'KQs', 'QJs', 'JTs', 'AQo'),
+        'UTG проти 3-бету з позиції: без позиції колл лише з парами й одномасними бродвеями. A5s — 4-бет-блеф: блокує тузів, а коллом без позиції програє.',
+      ),
+      IP: cell3(
+        S('QQ+', 'AKs', 'AKo', 'A5s'),
+        S('77-JJ', 'ATs-AQs', 'KJs-KQs', 'QJs', 'JTs', 'T9s', '98s', 'AQo'),
+        '3-бет із блайндів: позиція твоя, тож колл ширший — середні пари, одномасні бродвеї й конектори.',
+      ),
+    },
+    MID: {
+      OOP: cell3(
+        S('QQ+', 'AKs', 'AKo', 'A4s-A5s'),
+        S('88-JJ', 'ATs-AQs', 'KJs-KQs', 'QJs', 'JTs', 'T9s', 'AQo'),
+        'Без позиції більшість рук — 4-бет або фолд. A5s і A4s — 4-бет-блеф, колл лише з руками, що добре реалізують еквіті.',
+      ),
+      IP: cell3(
+        S('QQ+', 'AKs', 'AKo', 'A4s-A5s'),
+        S('66-JJ', 'ATs-AQs', 'KTs+', 'QJs', 'JTs', 'T9s', '98s', '87s', 'AQo', 'AJo', 'KQo'),
+        '3-бет із блайндів проти середнього опену: у позиції захищайся коллом широко — пари, одномасні бродвеї й конектори.',
+      ),
+    },
+    LATE: {
+      IP: cell3(
+        S('QQ+', 'AKs', 'AKo', 'A4s-A5s'),
+        S('55-JJ', 'A9s-AQs', 'KTs+', 'QTs+', 'J9s+', 'T9s', '98s', '87s', '76s', '65s', 'AQo', 'AJo', 'KQo'),
+        'Баттон проти 3-бету з блайндів: ти відкриваєш майже половину рук і граєш у позиції, тож фолдити надто багато — найдорожча помилка цього споту.',
+      ),
+    },
   },
   notes: {
     UTG: "П'ять гравців за спиною. Діапазон приблизно як LJ на 9-max: пари, тузи в масті, сильні бродвеї.",
@@ -239,6 +268,14 @@ export function tableIso(table: TableConfig, p: Position): ReadonlySet<Hand> {
   const r = table.iso[p]
   if (r === undefined) throw new Error(`${table.label}: немає ISO-діапазону для ${p}`)
   return r
+}
+
+/** Клітинка захисту від 3-бету; кидає, якщо такого споту не буває (LATE·OOP). */
+export function tableVs3bet(table: TableConfig, heroPos: Position, side: Vs3betSide): Vs3betCell {
+  const bucket = table.bucket(heroPos)
+  const c = table.vs3bet[bucket][side]
+  if (c === undefined) throw new Error(`${table.label}: немає захисту від 3-бету ${bucket}·${side}`)
+  return c
 }
 
 /** Місце за індексом у порядку дій столу. */
