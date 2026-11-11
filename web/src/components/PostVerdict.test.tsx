@@ -40,8 +40,8 @@ function makeDecision(overrides: Partial<HeroDecision> = {}): HeroDecision {
     repeatAggro: false,
     options: [
       { k: 'check', l: 'Чек', c: 'ghost' },
-      { k: 'b33', l: 'Ставка 33% · 2bb', c: 'soft' },
-      { k: 'b66', l: 'Ставка 66% · 4bb', c: 'primary' },
+      { k: 'b33', l: '33% · 2bb', c: 'soft' },
+      { k: 'b66', l: '66% · 4bb', c: 'primary' },
     ],
     correct: 'b66',
     why: 'На сухому борді з топ-парою треба захищати банк.',

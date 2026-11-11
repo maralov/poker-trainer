@@ -376,6 +376,98 @@ h4:first-child {
   aspect-ratio: 1.72;
   max-width: 640px;
   margin: 0 auto;
+  /* Борд і фішки на сукні міряються шириною стола (cqw). */
+  container-type: inline-size;
+}
+/* Банк і борд постфлопу — на сукні, трохи вище центру: нижче лежать
+   фішка й карти героя. */
+.felt-center {
+  position: absolute;
+  left: 50%;
+  top: 42%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  pointer-events: none;
+}
+/* Банк — плашкою над бордом, в один рядок. */
+.felt-center .pot {
+  position: static;
+  transform: none;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 3px 12px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.35);
+  font-size: 9.5px;
+}
+.felt-center .pot b {
+  margin: 0;
+  font-size: clamp(15px, 4.6cqw, 20px);
+}
+.felt-center .cards {
+  margin-top: 8px;
+  gap: min(6px, 1.2cqw);
+}
+/* Карти на сукні й на сіті героя міряються шириною стола. */
+.felt-center .card,
+.hero-cards .card {
+  width: clamp(30px, 13cqw, 56px);
+  height: auto;
+  aspect-ratio: 5 / 7;
+  border-radius: 4px;
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.45);
+}
+.felt-center .card .r,
+.hero-cards .card .r {
+  font-size: clamp(16px, 6.4cqw, 30px);
+}
+.felt-center .card .r.ten,
+.hero-cards .card .r.ten {
+  font-size: clamp(14px, 5.4cqw, 26px);
+}
+.felt-center .card .s,
+.hero-cards .card .s {
+  font-size: clamp(12px, 4.4cqw, 21px);
+}
+/* Вулиця й позиція — над банком: під бордом на пласкому столі це місце
+   займають карти героя. */
+.felt-center .board-lbl {
+  order: -1;
+  margin: 0 0 6px;
+  font-size: 9px;
+}
+/* Карти героя — над його підписом, заходять на сукню. */
+.hero-cards {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-bottom: 4px;
+}
+.hero-cards .cards {
+  margin-top: 0;
+  gap: 4px;
+}
+/* Ставка вулиці: фішка на сукні між сітом і центром. */
+.bet {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: min(11px, 3cqw);
+  color: var(--brass);
+  background: rgba(11, 14, 18, 0.6);
+  border: 1px solid var(--brass-dim);
+  border-radius: 999px;
+  padding: 2px 8px;
+  white-space: nowrap;
+}
+/* Постфлопний стіл — «стадіон», як у мобільних покер-клієнтах. */
+.felt-wrap.tall .felt,
+.felt-wrap.tall .felt::after {
+  border-radius: 9999px;
 }
 .felt {
   position: absolute;
@@ -478,6 +570,7 @@ h4:first-child {
   display: flex;
   gap: 9px;
   justify-content: center;
+  margin-top: 14px;
 }
 .cards.flop {
   margin-bottom: 22px;
@@ -535,16 +628,20 @@ h4:first-child {
 /* Чотириколірна колода. Відтінки підібрані під кремове тло карти: пікова
    лишається майже чорною, решта відходять від неї настільки, щоб масть
    зчитувалася кольором ще до того, як око розбере значок. */
-.card.spade {
+.card.spade,
+.mini-card.spade {
   --suit: #141a21;
 }
-.card.heart {
+.card.heart,
+.mini-card.heart {
   --suit: #b3322c;
 }
-.card.diam {
+.card.diam,
+.mini-card.diam {
   --suit: #1a5b9c;
 }
-.card.club {
+.card.club,
+.mini-card.club {
   --suit: #1c6b45;
 }
 .card.hero {
@@ -847,6 +944,159 @@ h4:first-child {
 .finding.tight {
   border-left-color: var(--green);
 }
+/* ---- постфлоп-розбір: картка споту і розгорнута роздача ---- */
+.spot {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  background: var(--panel2);
+  border: 1px solid var(--line);
+  border-left: 2px solid var(--red);
+  border-radius: 0 2px 2px 0;
+  padding: 12px 14px;
+  margin-bottom: 9px;
+}
+.spot-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  width: 100%;
+}
+.spot-hand {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ivory);
+}
+.spot-cat {
+  font-size: 13px;
+  color: var(--muted);
+}
+.spot-n {
+  margin-left: auto;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  color: var(--brass);
+  border: 1px solid var(--brass-dim);
+  border-radius: 999px;
+  padding: 0 7px;
+}
+.spot > .link {
+  padding: 0;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  color: var(--brass);
+}
+.spot-ctx {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  line-height: 1.5;
+  letter-spacing: 0.03em;
+  color: var(--muted);
+}
+.mini-cards {
+  display: inline-flex;
+  gap: 3px;
+}
+/* Заливка мастю, білий ранг і значок: у дрібному розмірі колір тла читається
+   першим. Кольори — ті самі, що в масті великих карт. */
+.mini-card {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 30px;
+  justify-content: center;
+  padding: 4px 5px;
+  border-radius: 4px;
+  background: var(--suit, #141a21);
+  color: #fff;
+  font-family: 'Karla', system-ui, sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
+}
+.mini-card.spade {
+  background: #3a424d;
+}
+.mini-card svg {
+  width: 12px;
+  height: 12px;
+  fill: currentColor;
+}
+/* «✗ що зробив → ✓ що мав». Позначки тут, а не в тексті: текст лишається
+   чистою назвою дії. */
+.fixline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 700;
+}
+.fixline .no {
+  color: var(--red);
+}
+.fixline .yes {
+  color: var(--green);
+}
+.fixline .no::before {
+  content: '✗ ';
+}
+.fixline .yes::before {
+  content: '✓ ';
+}
+.fixline .arrow {
+  color: var(--muted);
+  font-weight: 400;
+}
+.ep-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  margin-top: 4px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+.ep-hole {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  color: var(--muted);
+}
+.ep-step {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-left: 10px;
+  border-left: 2px solid var(--green-dim);
+}
+.ep-step.bad {
+  border-left-color: var(--red);
+}
+.ep-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.ep-head b {
+  min-width: 42px;
+  font-size: 13px;
+  color: var(--ivory);
+}
+.ep-pot {
+  margin-left: auto;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  color: var(--muted);
+}
+.ep-pot span {
+  color: var(--ivory);
+}
 .mrow {
   display: flex;
   align-items: center;
@@ -1106,6 +1356,28 @@ td.m {
   .felt-wrap {
     aspect-ratio: 1.35;
   }
+  /*
+   * Постфлоп: вертикальний стіл на ~дві третини екрана. На горизонтальному
+   * в 360px борд, фішки і карти героя не вміщались між сітами.
+   */
+  .felt-wrap.tall {
+    aspect-ratio: 0.66;
+    width: min(100%, 41vh);
+  }
+  .felt-wrap.tall .felt {
+    inset: 6% 9%;
+  }
+  /* Усі дії в один ряд: кнопки стискаються, текст переноситься всередині. */
+  .acts {
+    flex-wrap: nowrap;
+    gap: 6px;
+  }
+  .act-btn {
+    min-width: 0;
+    max-width: none;
+    padding: 12px 4px;
+    font-size: 13.5px;
+  }
   .sc b {
     font-size: 19px;
   }
@@ -1147,6 +1419,13 @@ td.m {
   }
   table.rules td.m {
     grid-column: 1 / -1;
+  }
+}
+
+/* Гарячі клавіші на сенсорному екрані не існують — підпис лише забирає місце. */
+@media (pointer: coarse) {
+  .act-btn small {
+    display: none;
   }
 }
 
@@ -1227,19 +1506,13 @@ td.m {
   display: grid;
 }
 /* Прокрутка до вердикту (useScrollToResult) не має впиратись у край вікна. */
-.duel-side {
+.duel-side,
+.duel-answer {
   scroll-margin-top: 12px;
 }
 /* Відступи смужок — не інлайном, бо в режимі «одне вікно» вони інші. */
 .duel-board > .strip {
   margin-bottom: 20px;
-}
-.post-cards {
-  margin-top: 10px;
-}
-/* Підпис руки під бордом — інакше «Твої карти» злипається з картами борду. */
-.post-cards > div + div {
-  margin-top: 16px;
 }
 .stage + .strip {
   margin-top: 18px;
@@ -1257,13 +1530,10 @@ td.m {
   }
   /*
    * У режимі «одне вікно» ширина стола йде за висотою, тож фіксовані 78px сіта
-   * на низькому вікні перекривали б одне одного. Тут стіл сам собі контейнер:
+   * на низькому вікні перекривали б одне одного. Стіл — контейнер (cqw):
    * сіти й банк рахуються від його ширини, верхня межа — розміри з референсу.
    * На мобільному лишаються фіксовані розміри: там стіл завжди на всю ширину.
    */
-  .felt-wrap {
-    container-type: inline-size;
-  }
   .seat {
     width: min(78px, 13cqw);
   }
@@ -1320,6 +1590,12 @@ td.m {
     border-left: 1px solid var(--line);
     padding-left: 22px;
   }
+  /* Кнопки й вердикт не стискаються — стискається історія над ними. */
+  .duel-answer {
+    display: flex;
+    flex-direction: column;
+    flex: 0 0 auto;
+  }
   /* Колонку вже відділяє лінія — верхня рамка вердикту тут зайва. */
   .duel .verdict {
     margin-top: 0;
@@ -1341,15 +1617,6 @@ td.m {
   }
   .duel-board > .strip {
     margin-bottom: 16px;
-  }
-  /* Борд і рука поруч: стовпчиком під столом вони не вміщались у висоту вікна. */
-  .post-cards {
-    display: flex;
-    justify-content: center;
-    gap: 28px;
-  }
-  .post-cards > div + div {
-    margin-top: 0;
   }
 
   /*
@@ -1453,6 +1720,29 @@ td.m {
     align-self: center;
   }
 
+  /* Постфлоп: борд і карти героя лежать на столі, тож він вищий за префлопний. */
+  .wrap.fit .felt-wrap.tall {
+    aspect-ratio: 1.8;
+    min-height: 200px;
+  }
+  /* Стіл пласкіший за мобільний: карти міряються так, щоб борд і рука
+     героя вмістились одна над одною у висоту (≈ ширина / 1.8). */
+  .wrap.fit .felt-wrap.tall .felt-center {
+    top: 39%;
+  }
+  .wrap.fit .felt-wrap.tall .card {
+    width: clamp(28px, 8.5cqw, 52px);
+  }
+  .wrap.fit .felt-wrap.tall .card .r {
+    font-size: clamp(15px, 4.4cqw, 28px);
+  }
+  .wrap.fit .felt-wrap.tall .card .r.ten {
+    font-size: clamp(13px, 3.7cqw, 24px);
+  }
+  .wrap.fit .felt-wrap.tall .card .s {
+    font-size: clamp(11px, 3cqw, 19px);
+  }
+
   /* Сітка 13×13 квадратна, тож так само: висота задає ширину. */
   .wrap.fit .duel .verdict {
     display: flex;
@@ -1477,15 +1767,16 @@ td.m {
   }
   /*
    * На рівері історія роздачі (особливо в drill, де вулиці розіграні наперед)
-   * довша за вільну висоту. Без цього вона вилазила б за дошку — вгору на
-   * плашку drill і вниз під смужку статистики. Тепер стискається і гортається.
+   * довша за вільну висоту. Вона стоїть у правій колонці над кнопками і
+   * стискається з прокруткою, а не вилазить за панель.
    */
-  .wrap.fit .duel-board {
+  .wrap.fit .duel-side {
     justify-content: safe center;
   }
-  .wrap.fit .duel-board .hand-story {
+  .wrap.fit .duel-side .hand-story {
     flex: 0 1 auto;
     min-height: 3em;
     overflow-y: auto;
+    margin: 0 0 16px;
   }
 }
