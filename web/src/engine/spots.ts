@@ -8,21 +8,9 @@
  */
 
 import { WEIGHTED, dealFromHand, pick, union } from './cards'
+import { HERO_CTX, TEMPTING, isIsoPosition } from './ranges'
+import { seatAt, tableIso, tableRfi, type TableConfig } from './tables'
 import {
-  BUCKET,
-  HERO_CTX,
-  NOTES,
-  TEMPTING,
-  TIGHTER2,
-  VS_3BET,
-  VS_RAISE,
-  isIsoPosition,
-  isoRange,
-  positionAt,
-  rfiRange,
-} from './ranges'
-import {
-  ACTION_ORDER,
   type Action,
   type ActionOption,
   type Hand,
@@ -44,6 +32,8 @@ export interface ForceSpot {
 }
 
 export interface BuildSpotOptions {
+  /** Формат столу — обовʼязковий, щоб спот ніколи не зібрався «за замовчуванням» не того формату. */
+  readonly table: TableConfig
   /** Активні сценарії. Ігнорується, якщо заданий force. */
   readonly scenarios?: readonly Scenario[]
   /** Ключі `scen|pos|hand` з вагою помилки — підмішуються частіше. */
@@ -101,34 +91,41 @@ interface ScenarioShape {
   limpers: number | null
 }
 
-function buildRfi(force: ForceSpot | undefined, rng: Rng): ScenarioShape {
-  const heroPos = force ? force.heroPos : pick(ACTION_ORDER.slice(0, 8), rng)
+// Індекси нижче узагальнені через n = seats.length так, що для 9-max
+// послідовність викликів rng() збігається з референсом байт-у-байт.
+
+function buildRfi(table: TableConfig, force: ForceSpot | undefined, rng: Rng): ScenarioShape {
+  const order = table.seats
+  const n = order.length
+  const heroPos = force ? force.heroPos : pick(order.slice(0, n - 1), rng)
   const seats = emptySeats()
-  for (const p of ACTION_ORDER.slice(0, ACTION_ORDER.indexOf(heroPos))) seats[p] = 'fold'
+  for (const p of order.slice(0, order.indexOf(heroPos))) seats[p] = 'fold'
   return {
     heroPos,
     seats,
-    ranges: { raise: rfiRange(heroPos), call: new Set() },
+    ranges: { raise: tableRfi(table, heroPos), call: new Set() },
     options: OPT_RAISE_FOLD('Рейз 3bb'),
     prompt: 'Усі перед тобою скинули. Твій хід.',
     potBB: 1.5,
-    explainExtra: NOTES[heroPos],
+    explainExtra: table.notes[heroPos] ?? '',
     villainPos: null,
     limpers: null,
   }
 }
 
-function buildIso(force: ForceSpot | undefined, rng: Rng): ScenarioShape {
+function buildIso(table: TableConfig, force: ForceSpot | undefined, rng: Rng): ScenarioShape {
+  const order = table.seats
+  const n = order.length
   // hi ≥ 1: на UTG перед тобою нікого немає, лімпувати нікому.
-  // Верхня межа — SB (індекс 7): на BB проти самих лімперів фолду немає,
+  // Верхня межа — SB (індекс n-2): на BB проти самих лімперів фолду немає,
   // ти закриваєш торги і бачиш флоп безкоштовно. Форсований спот із BB
   // (стара помилка з журналу) підтягується до SB — діапазон там був той самий.
   const hi = force
-    ? Math.min(7, Math.max(1, ACTION_ORDER.indexOf(force.heroPos)))
-    : 1 + Math.floor(rng() * 7)
-  const heroPos = positionAt(hi)
+    ? Math.min(n - 2, Math.max(1, order.indexOf(force.heroPos)))
+    : 1 + Math.floor(rng() * (n - 2))
+  const heroPos = seatAt(table, hi)
   if (!isIsoPosition(heroPos)) throw new Error(`ізоляція не буває з ${heroPos}`)
-  const before = ACTION_ORDER.slice(0, hi)
+  const before = order.slice(0, hi)
   const nLimp = rng() < 0.55 ? 1 : 2
 
   const limpers: Position[] = []
@@ -141,7 +138,8 @@ function buildIso(force: ForceSpot | undefined, rng: Rng): ScenarioShape {
   const seats = emptySeats()
   for (const p of before) seats[p] = limpers.includes(p) ? 'limp' : 'fold'
 
-  const useRange = limpers.length >= 2 ? isoRange(TIGHTER2[heroPos]) : isoRange(heroPos)
+  const tighter = table.tighter2[heroPos] ?? heroPos
+  const useRange = tableIso(table, limpers.length >= 2 ? tighter : heroPos)
   return {
     heroPos,
     seats,
@@ -158,25 +156,27 @@ function buildIso(force: ForceSpot | undefined, rng: Rng): ScenarioShape {
   }
 }
 
-function buildVsRaise(force: ForceSpot | undefined, rng: Rng): ScenarioShape {
+function buildVsRaise(table: TableConfig, force: ForceSpot | undefined, rng: Rng): ScenarioShape {
+  const order = table.seats
+  const n = order.length
   let ri: number
   let hi: number
   if (force) {
-    hi = Math.max(1, ACTION_ORDER.indexOf(force.heroPos))
-    ri = Math.floor(rng() * Math.min(hi, 7))
+    hi = Math.max(1, order.indexOf(force.heroPos))
+    ri = Math.floor(rng() * Math.min(hi, n - 2))
   } else {
-    ri = Math.floor(rng() * 7)
-    hi = ri + 1 + Math.floor(rng() * (8 - ri))
+    ri = Math.floor(rng() * (n - 2))
+    hi = ri + 1 + Math.floor(rng() * (n - 1 - ri))
   }
-  const raiser = positionAt(ri)
-  const heroPos = positionAt(hi)
+  const raiser = seatAt(table, ri)
+  const heroPos = seatAt(table, hi)
 
   const seats = emptySeats()
-  for (const p of ACTION_ORDER.slice(0, ri)) seats[p] = 'fold'
+  for (const p of order.slice(0, ri)) seats[p] = 'fold'
   seats[raiser] = 'raise'
-  for (const p of ACTION_ORDER.slice(ri + 1, hi)) seats[p] = 'fold'
+  for (const p of order.slice(ri + 1, hi)) seats[p] = 'fold'
 
-  const def = VS_RAISE[BUCKET(raiser)]
+  const def = table.vsRaise[table.bucket(raiser)]
   return {
     heroPos,
     seats,
@@ -190,33 +190,36 @@ function buildVsRaise(force: ForceSpot | undefined, rng: Rng): ScenarioShape {
   }
 }
 
-function buildVs3bet(force: ForceSpot | undefined, rng: Rng): ScenarioShape {
-  // hi ≤ 6: після BTN відкрити й отримати 3-бет вже нікому.
-  const hi = force ? Math.min(6, ACTION_ORDER.indexOf(force.heroPos)) : Math.floor(rng() * 7)
-  const heroPos = positionAt(hi)
-  const ti = hi + 1 + Math.floor(rng() * (8 - hi))
-  const threeBettor = positionAt(ti)
+function buildVs3bet(table: TableConfig, force: ForceSpot | undefined, rng: Rng): ScenarioShape {
+  const order = table.seats
+  const n = order.length
+  // hi ≤ n-3 (BTN): після BTN відкрити й отримати 3-бет вже нікому.
+  const hi = force ? Math.min(n - 3, order.indexOf(force.heroPos)) : Math.floor(rng() * (n - 2))
+  const heroPos = seatAt(table, hi)
+  const ti = hi + 1 + Math.floor(rng() * (n - 1 - hi))
+  const threeBettor = seatAt(table, ti)
 
   const seats = emptySeats()
-  for (const p of ACTION_ORDER.slice(0, hi)) seats[p] = 'fold'
+  for (const p of order.slice(0, hi)) seats[p] = 'fold'
   seats[heroPos] = 'raise'
-  for (const p of ACTION_ORDER.slice(hi + 1, ti)) seats[p] = 'fold'
+  for (const p of order.slice(hi + 1, ti)) seats[p] = 'fold'
   seats[threeBettor] = '3bet'
 
   return {
     heroPos,
     seats,
-    ranges: { raise: VS_3BET.raise, call: VS_3BET.call },
+    ranges: { raise: table.vs3bet.raise, call: table.vs3bet.call },
     options: OPT_THREE_WAY('4-бет'),
     prompt: `Ти відкрив з ${heroPos}, ${threeBettor} поставив 3-бет 10bb.`,
     potBB: 14.5,
-    explainExtra: VS_3BET.note,
+    explainExtra: table.vs3bet.note,
     villainPos: threeBettor,
     limpers: null,
   }
 }
 
-export function buildSpot(options: BuildSpotOptions = {}): Spot {
+export function buildSpot(options: BuildSpotOptions): Spot {
+  const table = options.table
   const rng = options.rng ?? Math.random
   const force = options.force
   const missed = options.missed ?? {}
@@ -225,12 +228,12 @@ export function buildSpot(options: BuildSpotOptions = {}): Spot {
 
   const shape =
     scen === 'rfi'
-      ? buildRfi(force, rng)
+      ? buildRfi(table, force, rng)
       : scen === 'iso'
-        ? buildIso(force, rng)
+        ? buildIso(table, force, rng)
         : scen === 'vsraise'
-          ? buildVsRaise(force, rng)
-          : buildVs3bet(force, rng)
+          ? buildVsRaise(table, force, rng)
+          : buildVs3bet(table, force, rng)
 
   const relevant = [...union(shape.ranges.raise, shape.ranges.call, TEMPTING)]
 
@@ -264,6 +267,7 @@ export function buildSpot(options: BuildSpotOptions = {}): Spot {
       : 'fold'
 
   return {
+    table: table.id,
     scen,
     heroPos: shape.heroPos,
     seats: shape.seats,

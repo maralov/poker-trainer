@@ -171,7 +171,7 @@ export type RaiserBucket = 'EARLY' | 'MID' | 'LATE'
 /** Контекст героя щодо рейзера: у позиції, на малому чи великому блайнді. */
 export type HeroContext = 'POS' | 'SB' | 'BB'
 
-interface VsRaiseDef {
+export interface VsRaiseDef {
   readonly label: string
   readonly raise: ReadonlySet<Hand>
   readonly call: Readonly<Record<HeroContext, ReadonlySet<Hand>>>
@@ -249,7 +249,7 @@ const VS_RAISE_RAW: Readonly<Record<RaiserBucket, VsRaiseDef>> = {
  * а таблиця показувала її як колл — і відсотки в шапці не сходились із сумою.
  * Віднімаємо рейз від коллу один раз тут, щоб перетин не міг зʼявитися знову.
  */
-const disjoint = (def: VsRaiseDef): VsRaiseDef => ({
+export const disjoint = (def: VsRaiseDef): VsRaiseDef => ({
   ...def,
   call: {
     POS: minus(def.call.POS, def.raise),

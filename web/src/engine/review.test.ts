@@ -3,6 +3,9 @@ import { describe, expect, it } from 'vitest'
 import { emptyPreProgress, recordAnswer, type PreProgress } from './progress'
 import { buildReport, buildReview, handCat } from './review'
 import type { Action, Hand, Position, Scenario } from './types'
+import { TABLES } from './tables'
+
+const T9 = TABLES['9max']
 
 /** Прогрес із n однакових помилок. */
 function mistakes(
@@ -78,7 +81,7 @@ describe('handCat', () => {
 
 describe('buildReview', () => {
   it('порожній прогрес — нулі, без патернів', () => {
-    const r = buildReview(emptyPreProgress(), 'rfi')
+    const r = buildReview(emptyPreProgress(), 'rfi', T9)
     expect(r.played).toBe(0)
     expect(r.mistakes).toBe(0)
     expect(r.findings).toEqual([])
@@ -90,7 +93,7 @@ describe('buildReview', () => {
     const p = emptyPreProgress()
     correct(p, 'rfi', 'BTN', 90)
     mistakes(p, 'rfi', 'UTG', 'J8o', 'fold', 10)
-    const r = buildReview(p, 'rfi')
+    const r = buildReview(p, 'rfi', T9)
     expect(r.played).toBe(100)
     expect(r.mistakes).toBe(10)
     expect(r.acc).toBe(90)
@@ -103,7 +106,7 @@ describe('buildReview', () => {
     const p = emptyPreProgress()
     correct(p, 'rfi', 'BTN', 50)
     mistakes(p, 'rfi', 'CO', '65s', 'raise', 10)
-    expect(buildReview(p, 'rfi').biasLine).toContain('надто туго')
+    expect(buildReview(p, 'rfi', T9).biasLine).toContain('надто туго')
   })
 
   it('приблизно рівний перекіс описується як змішаний', () => {
@@ -111,7 +114,7 @@ describe('buildReview', () => {
     correct(p, 'rfi', 'BTN', 50)
     mistakes(p, 'rfi', 'UTG', 'J8o', 'fold', 5)
     mistakes(p, 'rfi', 'CO', '65s', 'raise', 5)
-    expect(buildReview(p, 'rfi').biasLine).toContain('обидва боки')
+    expect(buildReview(p, 'rfi', T9).biasLine).toContain('обидва боки')
   })
 
   it('патерн з’являється від двох випадків і не більше трьох патернів', () => {
@@ -123,7 +126,7 @@ describe('buildReview', () => {
     mistakes(p, 'rfi', 'UTG', '65s', 'fold', 2) // suitedConn loose
     mistakes(p, 'rfi', 'UTG', 'A3s', 'fold', 2) // aceSuitedLow loose
 
-    const r = buildReview(p, 'rfi')
+    const r = buildReview(p, 'rfi', T9)
     expect(r.findings).toHaveLength(3)
     expect(r.findings.map((f) => f.c)).toEqual(['aceOffsuit', 'suitedGap', 'suitedConn'])
     expect(r.findings.every((f) => f.n >= 2 && f.text.length > 0)).toBe(true)
@@ -135,7 +138,7 @@ describe('buildReview', () => {
     correct(p, 'rfi', 'BTN', 50)
     // trash/tight — у довіднику порожній рядок.
     mistakes(p, 'rfi', 'UTG', '72o', 'raise', 5)
-    expect(buildReview(p, 'rfi').findings).toEqual([])
+    expect(buildReview(p, 'rfi', T9).findings).toEqual([])
   })
 
   it('знаходить найслабшу групу позицій і напрям її помилок', () => {
@@ -143,7 +146,7 @@ describe('buildReview', () => {
     correct(p, 'rfi', 'BTN', 50)
     mistakes(p, 'rfi', 'UTG', 'A5o', 'fold', 6)
     mistakes(p, 'rfi', 'CO', '65s', 'raise', 2)
-    const r = buildReview(p, 'rfi')
+    const r = buildReview(p, 'rfi', T9)
     expect(r.worstGroup?.g).toBe('early')
     expect(r.worstGroup?.bias).toBe('loose')
     expect(r.worstGroup?.n).toBe(6)
@@ -155,7 +158,7 @@ describe('buildReview', () => {
     correct(p, 'rfi', 'BTN', 200)
     const hands: Hand[] = ['A5o', 'K5s', '65s', 'A3s', 'J8o', 'Q6o', 'T7o', '94o', '83o', '72o']
     hands.forEach((h, i) => mistakes(p, 'rfi', 'UTG', h, 'fold', hands.length - i))
-    const r = buildReview(p, 'rfi')
+    const r = buildReview(p, 'rfi', T9)
     expect(r.topMistakes).toHaveLength(8)
     expect(r.topMistakes[0]?.hand).toBe('A5o')
     expect(r.topMistakes[0]?.n).toBe(10)
@@ -165,15 +168,15 @@ describe('buildReview', () => {
   it('назва правильної дії залежить від сценарію', () => {
     const p = emptyPreProgress()
     mistakes(p, 'vsraise', 'BTN', 'AA', 'raise', 2)
-    expect(buildReview(p, 'vsraise').topMistakes[0]?.correct).toBe('3-бет')
+    expect(buildReview(p, 'vsraise', T9).topMistakes[0]?.correct).toBe('3-бет')
 
     const p2 = emptyPreProgress()
     mistakes(p2, 'vs3bet', 'BTN', 'AA', 'raise', 2)
-    expect(buildReview(p2, 'vs3bet').topMistakes[0]?.correct).toBe('4-бет')
+    expect(buildReview(p2, 'vs3bet', T9).topMistakes[0]?.correct).toBe('4-бет')
 
     const p3 = emptyPreProgress()
     mistakes(p3, 'iso', 'BTN', 'AA', 'raise', 2)
-    expect(buildReview(p3, 'iso').topMistakes[0]?.correct).toBe('ізо-рейз')
+    expect(buildReview(p3, 'iso', T9).topMistakes[0]?.correct).toBe('ізо-рейз')
   })
 
   it('позиції рахуються СУВОРО в межах сценарію', () => {
@@ -181,8 +184,8 @@ describe('buildReview', () => {
     correct(p, 'rfi', 'UTG', 10)
     mistakes(p, 'iso', 'UTG', 'A5o', 'fold', 10)
 
-    const rfi = buildReview(p, 'rfi').byPosition.find((x) => x.pos === 'UTG')
-    const iso = buildReview(p, 'iso').byPosition.find((x) => x.pos === 'UTG')
+    const rfi = buildReview(p, 'rfi', T9).byPosition.find((x) => x.pos === 'UTG')
+    const iso = buildReview(p, 'iso', T9).byPosition.find((x) => x.pos === 'UTG')
     expect(rfi).toEqual({ pos: 'UTG', acc: 100, t: 10 })
     expect(iso).toEqual({ pos: 'UTG', acc: 0, t: 10 })
   })
@@ -190,7 +193,7 @@ describe('buildReview', () => {
   it('позиція без зіграних рук показує null, а не нуль', () => {
     const p = emptyPreProgress()
     correct(p, 'rfi', 'UTG', 5)
-    const bb = buildReview(p, 'rfi').byPosition.find((x) => x.pos === 'BB')
+    const bb = buildReview(p, 'rfi', T9).byPosition.find((x) => x.pos === 'BB')
     expect(bb).toEqual({ pos: 'BB', acc: null, t: 0 })
   })
 
@@ -198,8 +201,8 @@ describe('buildReview', () => {
     const p = emptyPreProgress()
     mistakes(p, 'rfi', 'UTG', 'A5o', 'fold', 3)
     mistakes(p, 'iso', 'CO', 'K5s', 'fold', 7)
-    expect(buildReview(p, 'rfi').mistakes).toBe(3)
-    expect(buildReview(p, 'iso').mistakes).toBe(7)
+    expect(buildReview(p, 'rfi', T9).mistakes).toBe(3)
+    expect(buildReview(p, 'iso', T9).mistakes).toBe(7)
   })
 })
 
@@ -208,9 +211,9 @@ describe('buildReport', () => {
     const p = emptyPreProgress()
     correct(p, 'rfi', 'BTN', 8)
     mistakes(p, 'rfi', 'UTG', 'A5o', 'fold', 2)
-    const report = buildReport(p, 'rfi')
+    const report = buildReport(p, 'rfi', T9)
 
-    expect(report).toContain('ЗВІТ · ПРЕФЛОП · сценарій: Відкриття')
+    expect(report).toContain('ЗВІТ · ПРЕФЛОП · 9-max · сценарій: Відкриття')
     expect(report).toContain('Зіграно: 10 · точність: 80% · помилок: 2')
     expect(report).toContain('Зайвих відкриттів: 2 · зайвих фолдів: 0')
     expect(report).toContain('  UTG: 0% (2)')
@@ -219,7 +222,7 @@ describe('buildReport', () => {
   })
 
   it('без даних по позиціях пише прямо про це', () => {
-    expect(buildReport(emptyPreProgress(), 'rfi')).toContain('(немає даних)')
+    expect(buildReport(emptyPreProgress(), 'rfi', T9)).toContain('(немає даних)')
   })
 
   it('обмежує список 25 рядками', () => {
@@ -227,7 +230,7 @@ describe('buildReport', () => {
     for (let i = 0; i < 30; i++) {
       mistakes(p, 'rfi', 'UTG', `${'AKQJT98765432'[i % 13]}${'2345'[i % 4]}o` as Hand, 'fold', 1)
     }
-    const rows = buildReport(p, 'rfi')
+    const rows = buildReport(p, 'rfi', T9)
       .split('\n')
       .filter((l) => l.includes(' / фолд / '))
     expect(rows.length).toBeLessThanOrEqual(25)

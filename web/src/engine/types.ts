@@ -35,6 +35,11 @@ export const POSTFLOP_ORDER = [
   'BTN',
 ] as const
 
+/** Формат столу. Конфіги форматів — у tables.ts. */
+export const TABLE_IDS = ['9max', '6max'] as const
+export type TableId = (typeof TABLE_IDS)[number]
+export const isTableId = (v: unknown): v is TableId => v === '9max' || v === '6max'
+
 export const SCENARIO_KEYS = ['rfi', 'iso', 'vsraise', 'vs3bet'] as const
 export type Scenario = (typeof SCENARIO_KEYS)[number]
 
@@ -80,6 +85,8 @@ export interface ActionOption {
 
 /** Готовий спот для показу гравцеві. */
 export interface Spot {
+  /** Формат столу, у якому спот побудовано. */
+  readonly table: TableId
   readonly scen: Scenario
   readonly heroPos: Position
   readonly seats: Readonly<Record<Position, SeatAction | null>>

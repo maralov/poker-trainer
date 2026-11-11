@@ -13,6 +13,9 @@ import refSpots from './__fixtures__/ref-spots.json'
 import { ISO, RFI, TIGHTER2, VS_3BET, VS_RAISE, type IsoPosition } from './ranges'
 import { buildSpot } from './spots'
 import { ACTION_ORDER, SCENARIO_KEYS, type Position, type Scenario, type Spot } from './types'
+import { TABLES } from './tables'
+
+const T9 = TABLES['9max']
 
 interface RefSpot {
   scen: string
@@ -60,7 +63,7 @@ describe.each(SCENARIO_KEYS)('еквівалентність референсу 
     const expected = fixtures.random[scen] ?? []
     expect(expected.length).toBeGreaterThan(0)
     expected.forEach((ref, i) => {
-      const got = buildSpot({ scenarios: [scen], rng: mulberry32(i + 1) })
+      const got = buildSpot({ table: T9, scenarios: [scen], rng: mulberry32(i + 1) })
       expect(shape(got), `${scen} seed=${i + 1}`).toEqual(ref)
     })
   })
@@ -70,6 +73,7 @@ describe.each(SCENARIO_KEYS)('еквівалентність референсу 
     expect(cases.length).toBeGreaterThan(0)
     cases.forEach(({ input, spot: ref }, i) => {
       const got = buildSpot({
+      table: T9,
         force: { scen, heroPos: input.heroPos as Position, hand: input.hand },
         rng: mulberry32(i + 1),
       })
@@ -84,6 +88,7 @@ describe.each(SCENARIO_KEYS)('еквівалентність референсу 
     expect(cases.length).toBeGreaterThan(0)
     cases.forEach(({ input, spot: ref }, i) => {
       const got = buildSpot({
+      table: T9,
         force: { scen, heroPos: input.heroPos as Position, hand: null, ban: input.ban },
         rng: mulberry32(500 + i),
       })
@@ -96,7 +101,7 @@ describe.each(SCENARIO_KEYS)('еквівалентність референсу 
 
 describe('інваріанти споту', () => {
   const sample = (scen: Scenario, n = 300): Spot[] =>
-    Array.from({ length: n }, (_, i) => buildSpot({ scenarios: [scen], rng: mulberry32(i + 1) }))
+    Array.from({ length: n }, (_, i) => buildSpot({ table: T9, scenarios: [scen], rng: mulberry32(i + 1) }))
 
   it('correct завжди узгоджений з діапазонами', () => {
     for (const scen of SCENARIO_KEYS) {
@@ -203,7 +208,7 @@ describe('інваріанти споту', () => {
   it('mixed: при кількох активних сценаріях трапляються всі', () => {
     const seen = new Set<Scenario>()
     for (let i = 1; i <= 400; i++) {
-      seen.add(buildSpot({ scenarios: [...SCENARIO_KEYS], rng: mulberry32(i) }).scen)
+      seen.add(buildSpot({ table: T9, scenarios: [...SCENARIO_KEYS], rng: mulberry32(i) }).scen)
     }
     expect([...seen].sort()).toEqual([...SCENARIO_KEYS].sort())
   })
@@ -218,7 +223,7 @@ describe('інваріанти споту', () => {
     }
     let hits = 0
     for (let i = 1; i <= 2000; i++) {
-      const q = buildSpot({ scenarios: ['rfi'], missed, rng: mulberry32(i) })
+      const q = buildSpot({ table: T9, scenarios: ['rfi'], missed, rng: mulberry32(i) })
       if (['72o', '83o', '94o', 'J2o'].includes(q.hand)) hits++
     }
     // Без підмішування ці чотири руки випадали б одиниці разів на 2000.

@@ -3,6 +3,9 @@ import { describe, expect, it } from 'vitest'
 import { GATE, gateStatus } from './gate'
 import type { RecentEntry } from './progress'
 import { ACTION_ORDER, SCENARIO_KEYS, type Position, type Scenario } from './types'
+import { TABLES } from './tables'
+
+const T9 = TABLES['9max']
 
 const entry = (s: Scenario, p: Position, ok: boolean): RecentEntry => ({ s, p, ok: ok ? 1 : 0 })
 
@@ -26,7 +29,7 @@ function passingWindow(accuracy = 1): RecentEntry[] {
 
 describe('gateStatus', () => {
   it('порожній стан — жодної умови', () => {
-    const g = gateStatus([], 0)
+    const g = gateStatus([], 0, T9)
     expect([g.c1, g.c2, g.c3, g.c4, g.ok]).toEqual([false, false, false, false, false])
     expect(g.acc).toBe(0)
     expect(g.win).toBe(0)
@@ -34,7 +37,7 @@ describe('gateStatus', () => {
 
   it('усі чотири умови виконуються на ідеальному вікні', () => {
     const w = passingWindow()
-    const g = gateStatus(w, 120)
+    const g = gateStatus(w, 120, T9)
     expect(g.win).toBe(120)
     expect(g.acc).toBe(100)
     expect([g.c1, g.c2, g.c3, g.c4, g.ok]).toEqual([true, true, true, true, true])
@@ -42,14 +45,14 @@ describe('gateStatus', () => {
 
   it('c1 залежить від загальної кількості рук, а не від вікна', () => {
     const w = passingWindow()
-    expect(gateStatus(w, GATE.hands - 1).c1).toBe(false)
-    expect(gateStatus(w, GATE.hands).c1).toBe(true)
+    expect(gateStatus(w, GATE.hands - 1, T9).c1).toBe(false)
+    expect(gateStatus(w, GATE.hands, T9).c1).toBe(true)
   })
 
   it('вікно обрізається до останніх 150 рук', () => {
     const old: RecentEntry[] = Array.from({ length: 200 }, () => entry('rfi', 'UTG', false))
     const fresh = passingWindow()
-    const g = gateStatus([...old, ...fresh], 320)
+    const g = gateStatus([...old, ...fresh], 320, T9)
     expect(g.win).toBe(GATE.window)
     // Старі помилки поза вікном не тягнуть точність униз до нуля.
     expect(g.acc).toBeGreaterThan(0)
@@ -58,8 +61,8 @@ describe('gateStatus', () => {
   it('точність 79% не проходить поріг, 80% проходить', () => {
     const mk = (correct: number): RecentEntry[] =>
       Array.from({ length: 100 }, (_, i) => entry('rfi', 'UTG', i < correct))
-    expect(gateStatus(mk(79), 100).c2).toBe(false)
-    expect(gateStatus(mk(80), 100).c2).toBe(true)
+    expect(gateStatus(mk(79), 100, T9).c2).toBe(false)
+    expect(gateStatus(mk(80), 100, T9).c2).toBe(true)
   })
 
   it('c3: один провалений сценарій блокує ворота попри високе середнє', () => {
@@ -69,7 +72,7 @@ describe('gateStatus', () => {
       for (let i = 0; i < 30; i++) w.push(entry(scen, ACTION_ORDER[i % 8] as Position, true))
     }
     for (let i = 0; i < 30; i++) w.push(entry('vs3bet', ACTION_ORDER[i % 8] as Position, i % 2 === 0))
-    const g = gateStatus(w, 200)
+    const g = gateStatus(w, 200, T9)
     expect(g.acc).toBeGreaterThan(GATE.acc)
     expect(g.c2).toBe(true)
     expect(g.c3, 'слабкий сценарій має блокувати').toBe(false)
@@ -81,7 +84,7 @@ describe('gateStatus', () => {
     for (let i = 0; i < 110; i++) w.push(entry('rfi', ACTION_ORDER[i % 8] as Position, true))
     // 14 провалених рук iso — замало, щоб сценарій потрапив у розрахунок.
     for (let i = 0; i < 14; i++) w.push(entry('iso', ACTION_ORDER[i % 8] as Position, false))
-    const g = gateStatus(w, 200)
+    const g = gateStatus(w, 200, T9)
     expect(g.scen.map((s) => s.k)).toEqual(['rfi'])
     expect(g.c3).toBe(true)
   })
@@ -92,7 +95,7 @@ describe('gateStatus', () => {
     for (const p of ACTION_ORDER.slice(0, 7)) {
       for (let i = 0; i < 16; i++) w.push(entry(SCENARIO_KEYS[i % 4] as Scenario, p, true))
     }
-    const g = gateStatus(w, 200)
+    const g = gateStatus(w, 200, T9)
     expect(g.pos).toHaveLength(7)
     expect(g.c4).toBe(false)
   })
@@ -101,8 +104,8 @@ describe('gateStatus', () => {
     const w = passingWindow()
     // Псуємо UTG: перші 15 записів вікна — це саме UTG.
     for (let i = 0; i < 15; i++) w[i] = entry(w[i]!.s, 'UTG', i < 5)
-    const g = gateStatus(w, 200)
-    expect(g.pos.length).toBeGreaterThanOrEqual(GATE.posCount)
+    const g = gateStatus(w, 200, T9)
+    expect(g.pos.length).toBeGreaterThanOrEqual(T9.posCount)
     expect(g.c4).toBe(false)
     expect(g.pos.find((x) => x.k === 'UTG')?.p).toBeLessThan(GATE.acc)
   })
@@ -114,7 +117,7 @@ describe('gateStatus', () => {
     }
     // BB з'являється 7 разів і весь час помилково — має бути проігнорований.
     for (let i = 0; i < 7; i++) w.push(entry('vsraise', 'BB', false))
-    const g = gateStatus(w, 200)
+    const g = gateStatus(w, 200, T9)
     expect(g.pos.map((x) => x.k)).not.toContain('BB')
     expect(g.c4).toBe(true)
   })
@@ -123,7 +126,7 @@ describe('gateStatus', () => {
     const w: RecentEntry[] = Array.from({ length: 99 }, (_, i) =>
       entry(SCENARIO_KEYS[i % 4] as Scenario, ACTION_ORDER[i % 8] as Position, true),
     )
-    const g = gateStatus(w, 500)
+    const g = gateStatus(w, 500, T9)
     expect(g.c1).toBe(true)
     expect([g.c2, g.c3, g.c4]).toEqual([false, false, false])
   })

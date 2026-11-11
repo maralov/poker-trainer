@@ -5,6 +5,9 @@ import { POST_DRILL, fitsTarget, fixesOf, nextDrillSpot, pickDrillTarget, postDr
 import { POST_DRILL_LOG_LIMIT, emptyPostProgress, recordPostAnswer, type PostAnswerInput, type PostProgress } from './postProgress'
 import { POST_FIX, buildPostReview, type PostFixKey } from './postReview'
 import { heroDecision } from './step'
+import { TABLES } from '../tables'
+
+const T9 = TABLES['9max']
 
 const FIXES = Object.keys(POST_FIX) as PostFixKey[]
 
@@ -163,7 +166,7 @@ describe('генерація drill-спотів', () => {
     for (const contrast of [false, true]) {
       it(`${fix}${contrast ? ' · контраст' : ''} знаходиться за ліміт`, () => {
         const target = { fix, contrast }
-        const ep = startDrillEpisode(target, { rng: mulberry32(fix.length * 31 + (contrast ? 1 : 0)) })
+        const ep = startDrillEpisode(target, { table: T9, rng: mulberry32(fix.length * 31 + (contrast ? 1 : 0)) })
         expect(ep).not.toBeNull()
         const d = ep && heroDecision(ep)
         expect(d).not.toBeNull()
@@ -181,7 +184,7 @@ describe('генерація drill-спотів', () => {
 
   it('nextDrillSpot повертає спот цілі з пулу', () => {
     const pool = [{ fix: 'riverBluff' as const, n: 2, streak: 0 }]
-    const spot = nextDrillSpot(pool, { rng: mulberry32(3), id: 'e1' })
+    const spot = nextDrillSpot(pool, { table: T9, rng: mulberry32(3), id: 'e1' })
     expect(spot?.target.fix).toBe('riverBluff')
     expect(spot?.episode.id).toBe('e1')
     const d = spot && heroDecision(spot.episode)
@@ -189,6 +192,6 @@ describe('генерація drill-спотів', () => {
   })
 
   it('порожній пул — спота немає', () => {
-    expect(nextDrillSpot([], { rng: mulberry32(1) })).toBeNull()
+    expect(nextDrillSpot([], { table: T9, rng: mulberry32(1) })).toBeNull()
   })
 })

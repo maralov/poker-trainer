@@ -8,14 +8,17 @@ import { BUILD, LIMP_CALL, LIMP_RANGE, buildEpisode } from './build'
 import { cardCode } from './deck'
 import { evalHand } from './evaluate'
 import { isStrong } from './types'
+import { TABLES } from '../tables'
+
+const T9 = TABLES['9max']
 
 const sample = (n: number, seed = 1) =>
-  Array.from({ length: n }, (_, i) => buildEpisode({ rng: mulberry32(seed + i) }))
+  Array.from({ length: n }, (_, i) => buildEpisode({ table: T9, rng: mulberry32(seed + i) }))
 
 describe('buildEpisode · rfi', () => {
   it('той самий seed дає той самий епізод', () => {
-    const a = buildEpisode({ rng: mulberry32(11) })
-    const b = buildEpisode({ rng: mulberry32(11) })
+    const a = buildEpisode({ table: T9, rng: mulberry32(11) })
+    const b = buildEpisode({ table: T9, rng: mulberry32(11) })
     expect(a.board.map(cardCode)).toEqual(b.board.map(cardCode))
     expect(a.seats.map((s) => s.hole.map(cardCode))).toEqual(b.seats.map((s) => s.hole.map(cardCode)))
   })
@@ -71,7 +74,7 @@ describe('buildEpisode · rfi', () => {
   it('банк: CO відкрив 3bb, один колер BTN → 7.5bb', () => {
     let found = false
     for (let s = 1; s <= 5000 && !found; s++) {
-      const ep = buildEpisode({ rng: mulberry32(s) })
+      const ep = buildEpisode({ table: T9, rng: mulberry32(s) })
       if (ep.heroPos !== 'CO') continue
       const callers = ep.seats.filter((x) => !x.hero).map((x) => x.pos)
       if (callers.length !== 1 || callers[0] !== 'BTN') continue
@@ -84,7 +87,7 @@ describe('buildEpisode · rfi', () => {
   it('банк: CO відкрив 3bb, один колер BB → 6.5bb (мертві гроші менші — блайнд уже в поті)', () => {
     let found = false
     for (let s = 1; s <= 5000 && !found; s++) {
-      const ep = buildEpisode({ rng: mulberry32(s) })
+      const ep = buildEpisode({ table: T9, rng: mulberry32(s) })
       if (ep.heroPos !== 'CO') continue
       const callers = ep.seats.filter((x) => !x.hero).map((x) => x.pos)
       if (callers.length !== 1 || callers[0] !== 'BB') continue
@@ -103,17 +106,17 @@ describe('buildEpisode · rfi', () => {
   it('id за замовчуванням порожній — engine не генерує ідентифікатори сам', () => {
     // Правило 5 CLAUDE.md: engine/ не тягне зовнішніх залежностей, а crypto.randomUUID
     // саме такою залежністю і був би. id заповнює стор — engine лише носить поле.
-    const ep = buildEpisode({ rng: mulberry32(1) })
+    const ep = buildEpisode({ table: T9, rng: mulberry32(1) })
     expect(ep.id).toBe('')
   })
 
   it('переданий id потрапляє в епізод незмінним', () => {
-    const ep = buildEpisode({ rng: mulberry32(1), id: 'episode-abc-123' })
+    const ep = buildEpisode({ table: T9, rng: mulberry32(1), id: 'episode-abc-123' })
     expect(ep.id).toBe('episode-abc-123')
   })
 
   it('починається з флопу без ставок', () => {
-    const ep = buildEpisode({ rng: mulberry32(33) })
+    const ep = buildEpisode({ table: T9, rng: mulberry32(33) })
     expect(ep.street).toBe('flop')
     expect(ep.board).toHaveLength(3)
     expect(ep.bet).toBe(0)
@@ -136,7 +139,7 @@ describe('buildEpisode · rfi', () => {
 /** Шукає конкретний спот лінії колера серед сідів і перевіряє банк. */
 function expectPot(opener: string, hero: string, want: number): void {
   for (let s = 1; s <= 8000; s++) {
-    const ep = buildEpisode({ scenario: 'vsraise', rng: mulberry32(s) })
+    const ep = buildEpisode({ table: T9, scenario: 'vsraise', rng: mulberry32(s) })
     if (ep.heroPos !== hero) continue
     if (ep.seats.find((x) => !x.hero)?.pos !== opener) continue
     expect(ep.potBB).toBe(want)
@@ -148,7 +151,7 @@ function expectPot(opener: string, hero: string, want: number): void {
 describe('buildEpisode · vsraise (лінія колера)', () => {
   const callerSample = (n: number, seed = 1) =>
     Array.from({ length: n }, (_, i) =>
-      buildEpisode({ scenario: 'vsraise', rng: mulberry32(seed + i) }),
+      buildEpisode({ table: T9, scenario: 'vsraise', rng: mulberry32(seed + i) }),
     )
 
   it('епізод підписаний лінією колера', () => {
@@ -203,8 +206,8 @@ describe('buildEpisode · vsraise (лінія колера)', () => {
   })
 
   it('той самий seed дає той самий епізод', () => {
-    const a = buildEpisode({ scenario: 'vsraise', rng: mulberry32(77) })
-    const b = buildEpisode({ scenario: 'vsraise', rng: mulberry32(77) })
+    const a = buildEpisode({ table: T9, scenario: 'vsraise', rng: mulberry32(77) })
+    const b = buildEpisode({ table: T9, scenario: 'vsraise', rng: mulberry32(77) })
     expect(a.heroPos).toBe(b.heroPos)
     expect(a.board.map(cardCode)).toEqual(b.board.map(cardCode))
   })
@@ -229,7 +232,7 @@ describe('buildEpisode · vsraise (лінія колера)', () => {
   })
 
   it('стрічка історії описує префлоп колера', () => {
-    const ep = buildEpisode({ scenario: 'vsraise', rng: mulberry32(31) })
+    const ep = buildEpisode({ table: T9, scenario: 'vsraise', rng: mulberry32(31) })
     expect(ep.history[0]).toMatch(/відкрив/)
     expect(ep.history[0]).toMatch(/заколлював/)
   })
@@ -247,7 +250,7 @@ describe('buildEpisode · vsraise (лінія колера)', () => {
 
 describe('buildEpisode · iso', () => {
   const isoSample = (n: number, seed = 1) =>
-    Array.from({ length: n }, (_, i) => buildEpisode({ scenario: 'iso', rng: mulberry32(seed + i) }))
+    Array.from({ length: n }, (_, i) => buildEpisode({ table: T9, scenario: 'iso', rng: mulberry32(seed + i) }))
 
   it('рука героя з ISO-діапазону, а не з RFI', () => {
     for (const ep of isoSample(200)) {
@@ -278,7 +281,7 @@ describe('buildEpisode · iso', () => {
   })
 
   it('стрічка історії згадує ізо-рейз', () => {
-    const ep = buildEpisode({ scenario: 'iso', rng: mulberry32(21) })
+    const ep = buildEpisode({ table: T9, scenario: 'iso', rng: mulberry32(21) })
     expect(ep.history[0]).toMatch(/ізо-рейз/)
   })
 
@@ -307,7 +310,7 @@ describe('buildEpisode · iso', () => {
   it('банк: BTN ізолює одного лімпера HJ на 5bb → 11.5bb', () => {
     let found = false
     for (let s = 1; s <= 5000 && !found; s++) {
-      const ep = buildEpisode({ scenario: 'iso', rng: mulberry32(s) })
+      const ep = buildEpisode({ table: T9, scenario: 'iso', rng: mulberry32(s) })
       if (ep.heroPos !== 'BTN') continue
       const callers = ep.seats.filter((x) => !x.hero).map((x) => x.pos)
       if (callers.length !== 1 || callers[0] !== 'HJ') continue
