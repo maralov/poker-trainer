@@ -17,7 +17,8 @@ const SEAT_TEXT: Readonly<Record<SeatAction, readonly [string, string]>> = {
   fold: ['Фолд', ''],
   limp: ['Лімп 1bb', 'limp'],
   raise: ['Рейз 3bb', 'raise'],
-  '3bet': ['3-бет 10bb', 'threebet'],
+  // Розмір 3-бету залежить від позиції 3-бетора (9 чи 12bb) — він у тексті споту.
+  '3bet': ['3-бет', 'threebet'],
 }
 
 /**
